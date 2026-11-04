@@ -1,0 +1,15 @@
+require("dotenv").config();
+const express=require("express"),helmet=require("helmet"),cors=require("cors"),rateLimit=require("express-rate-limit"),path=require("path");
+const api=require("./routes/api");
+const {PUBLIC_DIR,PORT,DATA_DIR,PROJECTS_DIR}=require("./utils/config");
+const app=express();
+require("fs").mkdirSync(PROJECTS_DIR,{recursive:true});
+app.use(helmet({crossOriginResourcePolicy:{policy:"cross-origin"},contentSecurityPolicy:{directives:{"default-src":["'self'"],"style-src":["'self'","'unsafe-inline'"],"script-src":["'self'"],"img-src":["'self'","data:"],"connect-src":["'self'"]}}}));
+const origins=(process.env.CORS_ORIGINS||"http://localhost:3000").split(",").map(x=>x.trim());
+app.use(cors({origin:(origin,cb)=>{if(!origin||origins.includes(origin))return cb(null,true);cb(new Error("Origin not allowed by CORS"));}}));
+app.use(express.json({limit:"256kb"}));
+app.use("/api",rateLimit({windowMs:60_000,limit:30,standardHeaders:true,legacyHeaders:false}));
+app.use("/api",api);
+app.use(express.static(PUBLIC_DIR));
+app.get("*",(req,res)=>res.sendFile(path.join(PUBLIC_DIR,"index.html")));
+app.listen(PORT,()=>console.log(`Fabric Mod AI listening on http://localhost:${PORT}`));
