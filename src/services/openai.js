@@ -1,9 +1,11 @@
-
+```js
 const { MODEL } = require("../utils/config");
 
 async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
-  if (!process.env.GROQ_API_KEY) {
-    throw new Error("GROQ_API_KEY is not configured.");
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not configured on the server.");
   }
 
   const controller = new AbortController();
@@ -11,7 +13,7 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
 
   try {
     const body = {
-      model: MODEL,
+      model: MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-120b",
       temperature: 0.2,
       messages
     };
@@ -26,26 +28,33 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
         method: "POST",
         signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
       }
     );
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(
-        data.error?.message || `Groq returned ${response.status}`
+        data.error?.message || `Groq API returned ${response.status}`
       );
     }
 
-    return data.choices?.[0]?.message?.content || "";
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("Groq returned an empty response.");
+    }
+
+    return content;
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error("AI request timed out.");
     }
+
     throw error;
   } finally {
     clearTimeout(timer);
@@ -53,3 +62,4 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
 }
 
 module.exports = { chat };
+```
