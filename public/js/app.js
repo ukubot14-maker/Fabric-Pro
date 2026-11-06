@@ -14,7 +14,7 @@ function render(j){
  $("phase").textContent=j.phase||"Working";$("status").textContent=`${j.status.toUpperCase()} · ${j.version}`;$("filecount").textContent=`${j.fileCount||j.files?.length||0} files`;
  $("logs").textContent=(j.log||[]).map(x=>`${x.at?new Date(x.at).toLocaleTimeString()+"  ":""}${x.message||x}`).join("\\n");$("logs").scrollTop=$("logs").scrollHeight;
  const s=Math.max(0,j.remainingSeconds??Math.ceil((deadline-Date.now())/1000));
- $("timer").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;$("fill").style.width=`${Math.min(100,100*(1-s/1800))}%`;
+ $("timer").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;$("fill").style.width=`${Math.min(100,100*(1-s/3600))}%`;
  if(j.status==="completed"){$("done").classList.remove("hidden");$("build-status").textContent=`Build status: ${j.buildStatus||"not reported"}. Review the report and build log in the ZIP.`;$("download").href=API_BASE+`/api/jobs/${j.id}/download`;stop();$("create").disabled=false;}
  if(["failed","expired"].includes(j.status)){setNotice(j.error||"The project stopped. Review the build activity for details.",true);stop();$("create").disabled=false;}
 }
@@ -24,7 +24,7 @@ document.querySelectorAll("[data-prompt]").forEach(b=>b.addEventListener("click"
 $("create").addEventListener("click",async()=>{
  const prompt=$("prompt").value.trim();if(prompt.length<8){setNotice("Add a little more detail before starting (at least 8 characters).",true);return;}
  $("create").disabled=true;$("progress").classList.remove("hidden");$("done").classList.add("hidden");$("logs").textContent="Submitting project brief…";setNotice("Your project is being queued. The server starts the deadline when it accepts the job.");
- try{const j=await api("/jobs",{method:"POST",body:JSON.stringify({name:$("modname").value,version:$("version").value.trim()||"latest",prompt})});jobId=j.id;deadline=Date.now()+1800000;render(j);pollTimer=setInterval(poll,2000);$("progress").scrollIntoView({behavior:"smooth",block:"start"});}
+ try{const j=await api("/jobs",{method:"POST",body:JSON.stringify({name:$("modname").value,version:$("version").value.trim()||"latest",prompt})});jobId=j.id;deadline=Date.now()+3600000;render(j);pollTimer=setInterval(poll,2000);$("progress").scrollIntoView({behavior:"smooth",block:"start"});}
  catch(e){setNotice(e.message,true);$("create").disabled=false;}
 });
 async function boot(){
