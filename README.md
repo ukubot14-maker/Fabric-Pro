@@ -7,7 +7,7 @@ A professional full-stack web application for AI-assisted Minecraft Fabric mod d
 - Responsive developer-workbench UI with project brief, version picker, live activity log and countdown.
 - Node.js/Express backend; the OpenAI API key remains server-side.
 - Official Fabric metadata lookup for game and loader versions.
-- Per-project 30-minute server-side deadline, plus concurrency and rate limits.
+- Per-project 60-minute server-side hard deadline, plus concurrency and rate limits. Most projects are expected to finish in about 30 minutes; complex projects may use the extra time.
 - AI-generated Gradle/Fabric project files, compatibility report, and ZIP download.
 - Optional Gradle build attempt when Gradle or a project wrapper is available.
 - Build log capture and one targeted AI repair pass when time allows.
@@ -60,9 +60,9 @@ Do not add `.env`, API keys, or private server files to the Pages repository.
 - `GET /api/jobs/:id`
 - `GET /api/jobs/:id/download`
 
-## 30-minute policy
+## Project time policy
 
-The server assigns a deadline at job acceptance and checks it again before marking the project complete. The UI countdown is informational; server enforcement is authoritative. Generation and build operations receive timeouts based on the remaining budget. The job is not allowed to continue indefinitely.
+The server assigns a hard 60-minute deadline when a job is accepted and checks it before marking the project complete. Most projects should finish in about 30 minutes; the remaining time is a buffer for larger mods, Gradle compilation, and AI repair attempts. The UI countdown is informational; server enforcement is authoritative. Generation and build operations receive timeouts based on the remaining budget. Jobs cannot continue indefinitely.
 
 ## Important engineering notes
 
