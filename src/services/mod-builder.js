@@ -21,7 +21,12 @@ function writeFiles(dir, files) {
     const dest=path.join(dir,f.path);fs.mkdirSync(path.dirname(dest),{recursive:true});
     fs.writeFileSync(dest,f.content,"utf8");count++;
   }
-  if(!count) throw new Error("The AI did not return any safe project files.");
+  if(!count) {
+  const first = files[0] || {};
+  throw new Error(
+    `AI returned ${files.length} entries, but none passed validation. First entry keys: ${Object.keys(first).join(", ")}. Path: ${String(first.path)}. Content type: ${typeof first.content}`
+  );
+}
   return count;
 }
 function run(cmd,args,{cwd,timeoutMs=120000}={}) {
