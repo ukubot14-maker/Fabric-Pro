@@ -13,7 +13,7 @@ function log(j,msg){j.log.push({at:new Date().toISOString(),message:msg});j.log=
 router.get("/health",(req,res)=>res.json({ok:true,service:"Fabric Mod AI",limitMinutes:30,activeJobs:[...jobs.values()].filter(j=>j.status==="running").length}));
 router.get("/versions",async(req,res)=>{try{res.json(await getVersions());}catch(e){res.status(503).json({error:e.message});}});
 router.post("/jobs",async(req,res)=>{
- if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI backend is not configured. Add OPENAI_API_KEY to the server environment."});
+ if(!process.env.GROQ_API_KEY)return res.status(503).json({error:"AI backend is not configured. Add GROQ_API_KEY to the server environment."});
  if([...jobs.values()].filter(j=>j.status==="running").length>=MAX_ACTIVE_JOBS)return res.status(429).json({error:"The mod workshop is busy. Try again when the current build finishes."});
  const {name,prompt,version}=req.body||{};
  if(typeof prompt!=="string"||prompt.trim().length<8||prompt.length>12000)return res.status(400).json({error:"Describe the mod in 8–12,000 characters."});
