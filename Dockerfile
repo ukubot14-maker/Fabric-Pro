@@ -1,16 +1,22 @@
+FROM gradle:8.10.2-jdk21 AS gradle
+
 FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# Install Java 21 from the official Eclipse Temurin image
-COPY --from=eclipse-temurin:21-jdk /opt/java/openjdk /opt/java/openjdk
-ENV JAVA_HOME=/opt/java/openjdk
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
+# Copy verified Gradle and Java installations
+COPY --from=gradle /opt/gradle /opt/gradle
+COPY --from=gradle /opt/java/openjdk /opt/java/openjdk
 
-# Install Gradle and other tools
-RUN apt-get update && apt-get install -y --no-install-recommends 
-    gradle zip unzip git ca-certificates 
-    && rm -rf /var/lib/apt/lists/*
+ENV GRADLE_HOME=/opt/gradle
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH=/opt/gradle/bin:/opt/java/openjdk/bin:$PATH
+
+# Install supporting tools
+RUN apt-get update && apt-get install -y --no-install-recommends zip unzip git ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Verify the build tools during deployment
+RUN java -version && gradle --version
 
 COPY package*.json ./
 RUN npm ci --omit=dev
