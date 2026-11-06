@@ -17,7 +17,7 @@ function safePath(p) {
   const s = String(p || "").replace(/\\/g, "/");
   const parts = s.split("/");
   return !!s && !s.startsWith("/") && !parts.includes("..") &&
-    !s.includes("\\0") && !parts.some(x => [".git", ".gradle", "build", "node_modules"].includes(x));
+    !s.includes("\0") && !parts.some(x => [".git", ".gradle", "build", "node_modules"].includes(x));
 }
 
 function writeFiles(dir, files) {
