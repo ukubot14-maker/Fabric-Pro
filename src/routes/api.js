@@ -10,7 +10,7 @@ const router=express.Router(),jobs=new Map();
 function remaining(j){return Math.max(0,Math.ceil((j.deadline-Date.now())/1000));}
 function snapshot(j){return {id:j.id,name:j.name,version:j.version,status:j.status,phase:j.phase,log:j.log.slice(-50),files:j.fileList||[],fileCount:j.fileCount||0,buildStatus:j.buildStatus||"pending",remainingSeconds:remaining(j),error:j.error||null};}
 function log(j,msg){j.log.push({at:new Date().toISOString(),message:msg});j.log=j.log.slice(-100);}
-router.get("/health",(req,res)=>res.json({ok:true,service:"Fabric Mod AI",limitMinutes:30,activeJobs:[...jobs.values()].filter(j=>j.status==="running").length}));
+router.get("/health",(req,res)=>res.json({ok:true,service:"Fabric Mod AI",limitMinutes:60,activeJobs:[...jobs.values()].filter(j=>j.status==="running").length}));
 router.get("/versions",async(req,res)=>{try{res.json(await getVersions());}catch(e){res.status(503).json({error:e.message});}});
 router.post("/jobs",async(req,res)=>{
  if(!process.env.GROQ_API_KEY)return res.status(503).json({error:"AI backend is not configured. Add GROQ_API_KEY to the server environment."});
@@ -23,7 +23,7 @@ router.post("/jobs",async(req,res)=>{
  jobs.set(j.id,j);log(j,`Accepted project. Hard deadline: ${new Date(j.deadline).toISOString()}.`);
  res.status(202).json(snapshot(j));
  createProject(j,msg=>{j.phase=msg;log(j,msg);}).then(dir=>{
-   if(Date.now()>j.deadline){j.status="expired";j.phase="Time limit reached";log(j,"Project exceeded its 30-minute deadline.");return;}
+   if(Date.now()>j.deadline){j.status="expired";j.phase="Time limit reached";log(j,"Project exceeded its 60-minute deadline.");return;}
    j.status="completed";j.phase="Project source ready";log(j,"Project generation workflow finished.");
  }).catch(e=>{j.status=Date.now()>j.deadline?"expired":"failed";j.phase=j.status==="expired"?"Time limit reached":"Needs attention";j.error=e.message;log(j,e.message);});
 });
