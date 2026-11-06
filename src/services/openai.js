@@ -14,7 +14,8 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
     const body = {
   model: MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-120b",
   temperature: 0.2,
-  max_completion_tokens: 12000,
+  max_completion_tokens: 24000,
+  reasoning_effort: "low",
   messages
 };
 
