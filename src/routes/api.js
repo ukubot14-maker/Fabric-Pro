@@ -20,7 +20,7 @@ router.post("/jobs",async(req,res)=>{
  const cleanName=String(name||"MyFabricMod").replace(/[^a-zA-Z0-9_-]/g,"").slice(0,48)||"MyFabricMod";
  const target=String(version||"latest").slice(0,40);
  const j={id:uuid(),name:cleanName,version:target,prompt:prompt.trim(),status:"running",phase:"Planning",started:Date.now(),deadline:Date.now()+LIMIT_MS,log:[],fileCount:0,fileList:[],buildStatus:"pending"};
- jobs.set(j.id,j);log(j,`Accepted project. Hard deadline: ${new Date(j.deadline).toISOString()}.`);
+ jobs.set(j.id,j);log(j,\`Accepted project. Hard deadline: \${new Date(j.deadline).toISOString()}.\`);
  res.status(202).json(snapshot(j));
  createProject(j,msg=>{j.phase=msg;log(j,msg);}).then(dir=>{
    if(Date.now()>j.deadline){j.status="expired";j.phase="Time limit reached";log(j,"Project exceeded its 60-minute deadline.");return;}
@@ -31,7 +31,9 @@ router.get("/jobs/:id",(req,res)=>{const j=jobs.get(req.params.id);if(!j)return 
 router.get("/jobs/:id/download",(req,res)=>{
  const j=jobs.get(req.params.id);if(!j)return res.status(404).json({error:"Project not found"});
  const dir=path.join(PROJECTS_DIR,j.id);if(!fs.existsSync(dir))return res.status(404).json({error:"Project files are not ready."});
- res.setHeader("Content-Type","application/zip");res.setHeader("Content-Disposition",`attachment; filename="${j.name}-fabric-project.zip"`);
- const archive=archiver("zip",{zlib:{level:8}});archive.on("error",e=>res.destroy(e));archive.pipe(res);archive.directory(dir,false);archive.finalize();
+ res.setHeader("Content-Type","application/zip");res.setHeader("Content-Disposition",\`attachment; filename="\${j.name}-fabric-project.zip"\`);
+ const archive=archiver("zip",{zlib:{level:8}});archive.on("error",e=>res.destroy(e));archive.pipe(res);
+ archive.glob("**/*",{cwd:dir,dot:true,ignore:[".git/**",".gradle/**","**/.gradle/**","**/build/**","**/node_modules/**"]});
+ archive.finalize();
 });
 module.exports=router;
