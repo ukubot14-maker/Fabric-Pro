@@ -1,4 +1,3 @@
-```js
 const { MODEL } = require("../utils/config");
 
 async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
@@ -13,7 +12,7 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
 
   try {
     const body = {
-      model: MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+      model: MODEL,
       temperature: 0.2,
       messages
     };
@@ -28,7 +27,7 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
         method: "POST",
         signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
@@ -38,9 +37,7 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        data.error?.message || `Groq API returned ${response.status}`
-      );
+      throw new Error(data.error?.message || `Groq API returned ${response.status}`);
     }
 
     const content = data.choices?.[0]?.message?.content;
@@ -62,4 +59,3 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
 }
 
 module.exports = { chat };
-```
