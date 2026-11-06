@@ -3,6 +3,7 @@ const express=require("express"),helmet=require("helmet"),cors=require("cors"),r
 const api=require("./routes/api");
 const {PUBLIC_DIR,PORT,DATA_DIR,PROJECTS_DIR}=require("./utils/config");
 const app=express();
+app.set("trust proxy", 1);
 require("fs").mkdirSync(PROJECTS_DIR,{recursive:true});
 app.use(helmet({crossOriginResourcePolicy:{policy:"cross-origin"},contentSecurityPolicy:{directives:{"default-src":["'self'"],"style-src":["'self'","'unsafe-inline'"],"script-src":["'self'"],"img-src":["'self'","data:"],"connect-src":["'self'"]}}}));
 const origins=(process.env.CORS_ORIGINS||"http://localhost:3000").split(",").map(x=>x.trim());
