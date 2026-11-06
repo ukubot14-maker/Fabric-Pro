@@ -20,8 +20,45 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
 };
 
     if (json) {
-      body.response_format = { type: "json_object" };
+  body.response_format = {
+    type: "json_schema",
+    json_schema: {
+      name: "fabric_mod_project",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          overview: { type: "string" },
+          compatibility: {
+            type: "object",
+            properties: {
+              minecraft: { type: "string" },
+              java: { type: "string" },
+              loader: { type: "string" },
+              notes: { type: "string" }
+            },
+            required: ["minecraft", "java", "loader", "notes"],
+            additionalProperties: false
+          },
+          files: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                path: { type: "string" },
+                content: { type: "string" }
+              },
+              required: ["path", "content"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["overview", "compatibility", "files"],
+        additionalProperties: false
+      }
     }
+  };
+}
 
     const response = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
