@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends zip unzip git c
 RUN java -version && gradle --version
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY . .
 
