@@ -11,7 +11,7 @@ Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.pr
 const MAX_BUILD_ATTEMPTS = 3; // Initial build plus up to two AI repair/build cycles.
 const MAX_BUILD_MS = 8 * 60 * 1000;
 const MAX_REPAIR_MS = 150 * 1000;
-const DIAGNOSTIC_CHARS = 18000;
+const DIAGNOSTIC_CHARS = 6000;
 
 function safePath(p) {
   const s = String(p || "").replace(/\\/g, "/");
@@ -161,7 +161,7 @@ function readRepairContext(dir) {
       parts.push("===== " + name + " =====\n" + fs.readFileSync(file, "utf8"));
     }
   }
-  return parts.join("\n\n").slice(-45000) || "No standard Gradle configuration files were found.";
+  return parts.join("\n\n").slice(-8000) || "No standard Gradle configuration files were found.";
 }
 
 async function createProject(job, onLog) {
@@ -271,7 +271,7 @@ async function createProject(job, onLog) {
       repairRaw = await chat([
         { role: "system", content: SYSTEM },
         { role: "user", content:
-          `Repair this existing Fabric project using the actual Gradle diagnostics. Return ONLY JSON with the required overview, compatibility object, and files array. Include complete corrected contents for every changed file. Preserve the target Minecraft version and architecture. Fix the reported build errors; do not make unrelated changes.\n\nTarget Minecraft version: ${job.version}\nMod requirements: ${job.prompt}\n\nBuild diagnostics:\n${diagnostics(build)}\n\nCurrent project files:\n${job.fileList.join("\n")}\n\nCurrent Gradle configuration and mod metadata (complete file contents):\n${readRepairContext(dir)}`
+          `Repair this existing Fabric project using the actual Gradle diagnostics. Return ONLY JSON with the required overview, compatibility object, and files array. Include complete corrected contents for every changed file. Preserve the target Minecraft version and architecture. Fix the reported build errors; do not make unrelated changes.\n\nTarget Minecraft version: ${job.version}\nMod requirements (shortened if necessary): ${String(job.prompt || "").slice(0, 4000)}\n\nBuild diagnostics:\n${diagnostics(build)}\n\nCurrent project files:\n${job.fileList.slice(0, 100).join("\n")}\n\nCurrent Gradle configuration and mod metadata (complete file contents):\n${readRepairContext(dir)}`
         }
       ], { timeoutMs: Math.min(MAX_REPAIR_MS, budget()) });
     } catch (error) {
