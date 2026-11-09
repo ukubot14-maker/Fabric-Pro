@@ -234,20 +234,14 @@ async function createProject(job, onLog) {
     if (configIssues.length) {
       build = { code: 1, stdout: "", stderr: "Pre-build validation failed:\n" + configIssues.map(x => "- " + x).join("\n"), timedOut: false };
     } else {
-      onLog("Checking Gradle configuration before compilation.");
-      const configCheck = await run(invocation.command, [...invocation.prefix, "help", "--no-daemon"], {
+      // Run configuration and compilation in one Gradle invocation. A separate
+      // "help" preflight resolves the same plugins and can time out before build
+      // output is produced, especially on a cold dependency cache.
+      onLog("Running Gradle build (configuration and compilation).");
+      build = await run(invocation.command, [...invocation.prefix, "build", "--console=plain", "--info", "--no-daemon", "--max-workers=1"], {
         cwd: dir,
-        timeoutMs: Math.min(120000, budget())
+        timeoutMs: Math.min(MAX_BUILD_MS, budget())
       });
-      if (configCheck.code !== 0) {
-        build = configCheck;
-      } else {
-        onLog("Gradle configuration check passed. Starting compilation.");
-        build = await run(invocation.command, [...invocation.prefix, "build", "--no-daemon"], {
-          cwd: dir,
-          timeoutMs: Math.min(MAX_BUILD_MS, budget())
-        });
-      }
     }
     lastBuild = build;
 
