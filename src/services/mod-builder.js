@@ -131,22 +131,22 @@ function validateGradleConfig(dir) {
   if (/<(?:loom-version|fabric-loom-version|minecraft-version|fabric-api-version|version)>|TODO_VERSION|REPLACE_ME/i.test(gradleText)) {
     issues.push("Gradle files contain an unresolved version placeholder.");
   }
-  if (/fabric-loom[\\s\\S]{0,160}?SNAPSHOT/i.test(gradleText)) {
+  if (/fabric-loom[\s\S]{0,160}?SNAPSHOT/i.test(gradleText)) {
     issues.push("Fabric Loom is configured with a SNAPSHOT version; use a released stable version.");
   }
   const executableSettings = settings
-    .replace(/\\/\\*[\\s\\S]*?\\*\\//g, "")
-    .replace(/^\\s*\\/\\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "")
     .trimStart();
-  if (!/^pluginManagement\\s*\\{/m.test(executableSettings)) {
+  if (!/^pluginManagement\s*\{/m.test(executableSettings)) {
     issues.push("settings.gradle must start with pluginManagement { as its first executable block.");
   }
   const pluginBlock = executableSettings.indexOf("pluginManagement");
-  const firstRootSetting = executableSettings.search(/\\b(rootProject\\.name|include|plugins\\s*\\{)/);
+  const firstRootSetting = executableSettings.search(/\b(rootProject\.name|include|plugins\s*\{)/);
   if (pluginBlock > 0 && firstRootSetting >= 0 && firstRootSetting < pluginBlock) {
     issues.push("pluginManagement must appear before rootProject.name, include, and plugins blocks in settings.gradle.");
   }
-  if (!/maven\\.fabricmc\\.net/i.test(settings)) {
+  if (!/maven\.fabricmc\.net/i.test(settings)) {
     issues.push("settings.gradle pluginManagement must declare https://maven.fabricmc.net/ for Fabric Loom resolution.");
   }
   return issues;
@@ -158,10 +158,10 @@ function readRepairContext(dir) {
   for (const name of names) {
     const file = path.join(dir, name);
     if (fs.existsSync(file) && fs.statSync(file).isFile()) {
-      parts.push("===== " + name + " =====\\n" + fs.readFileSync(file, "utf8"));
+      parts.push("===== " + name + " =====\n" + fs.readFileSync(file, "utf8"));
     }
   }
-  return parts.join("\\n\\n").slice(-45000) || "No standard Gradle configuration files were found.";
+  return parts.join("\n\n").slice(-45000) || "No standard Gradle configuration files were found.";
 }
 
 async function createProject(job, onLog) {
@@ -232,7 +232,7 @@ async function createProject(job, onLog) {
     const configIssues = validateGradleConfig(dir);
     let build;
     if (configIssues.length) {
-      build = { code: 1, stdout: "", stderr: "Pre-build validation failed:\\n" + configIssues.map(x => "- " + x).join("\\n"), timedOut: false };
+      build = { code: 1, stdout: "", stderr: "Pre-build validation failed:\n" + configIssues.map(x => "- " + x).join("\n"), timedOut: false };
     } else {
       onLog("Checking Gradle configuration before compilation.");
       const configCheck = await run(invocation.command, [...invocation.prefix, "help", "--no-daemon"], {
