@@ -6,7 +6,7 @@ const { PROJECTS_DIR } = require("../utils/config");
 
 const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. Return ONLY valid JSON with this schema:
 {"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}]}
-Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Do not fabricate exact dependency versions: use official Fabric Maven metadata or clearly mark versions that must be resolved. Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
+Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions. Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
 const MAX_BUILD_ATTEMPTS = 3; // Initial build plus up to two AI repair/build cycles.
 const MAX_BUILD_MS = 8 * 60 * 1000;
@@ -113,6 +113,57 @@ function diagnostics(result) {
   ].join("\n").slice(-DIAGNOSTIC_CHARS);
 }
 
+function validateGradleConfig(dir) {
+  const issues = [];
+  const settingsPath = fs.existsSync(path.join(dir, "settings.gradle"))
+    ? path.join(dir, "settings.gradle")
+    : path.join(dir, "settings.gradle.kts");
+  const buildPath = fs.existsSync(path.join(dir, "build.gradle"))
+    ? path.join(dir, "build.gradle")
+    : path.join(dir, "build.gradle.kts");
+  if (!fs.existsSync(settingsPath)) issues.push("Missing settings.gradle or settings.gradle.kts.");
+  if (!fs.existsSync(buildPath)) issues.push("Missing build.gradle or build.gradle.kts.");
+  if (!fs.existsSync(settingsPath) || !fs.existsSync(buildPath)) return issues;
+
+  const settings = fs.readFileSync(settingsPath, "utf8");
+  const build = fs.readFileSync(buildPath, "utf8");
+  const gradleText = settings + "\n" + build;
+  if (/<(?:loom-version|fabric-loom-version|minecraft-version|fabric-api-version|version)>|TODO_VERSION|REPLACE_ME/i.test(gradleText)) {
+    issues.push("Gradle files contain an unresolved version placeholder.");
+  }
+  if (/fabric-loom[\\s\\S]{0,160}?SNAPSHOT/i.test(gradleText)) {
+    issues.push("Fabric Loom is configured with a SNAPSHOT version; use a released stable version.");
+  }
+  const executableSettings = settings
+    .replace(/\\/\\*[\\s\\S]*?\\*\\//g, "")
+    .replace(/^\\s*\\/\\/.*$/gm, "")
+    .trimStart();
+  if (!/^pluginManagement\\s*\\{/m.test(executableSettings)) {
+    issues.push("settings.gradle must start with pluginManagement { as its first executable block.");
+  }
+  const pluginBlock = executableSettings.indexOf("pluginManagement");
+  const firstRootSetting = executableSettings.search(/\\b(rootProject\\.name|include|plugins\\s*\\{)/);
+  if (pluginBlock > 0 && firstRootSetting >= 0 && firstRootSetting < pluginBlock) {
+    issues.push("pluginManagement must appear before rootProject.name, include, and plugins blocks in settings.gradle.");
+  }
+  if (!/maven\\.fabricmc\\.net/i.test(settings)) {
+    issues.push("settings.gradle pluginManagement must declare https://maven.fabricmc.net/ for Fabric Loom resolution.");
+  }
+  return issues;
+}
+
+function readRepairContext(dir) {
+  const names = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "gradle.properties", "src/main/resources/fabric.mod.json"];
+  const parts = [];
+  for (const name of names) {
+    const file = path.join(dir, name);
+    if (fs.existsSync(file) && fs.statSync(file).isFile()) {
+      parts.push("===== " + name + " =====\\n" + fs.readFileSync(file, "utf8"));
+    }
+  }
+  return parts.join("\\n\\n").slice(-45000) || "No standard Gradle configuration files were found.";
+}
+
 async function createProject(job, onLog) {
   const dir = path.join(PROJECTS_DIR, job.id);
   fs.mkdirSync(dir, { recursive: true });
@@ -178,10 +229,26 @@ async function createProject(job, onLog) {
       ? "Running Gradle build. Build output is being captured."
       : `Running Gradle build after repair (attempt ${attempt} of ${MAX_BUILD_ATTEMPTS}).`);
 
-    const build = await run(invocation.command, [...invocation.prefix, "build", "--no-daemon"], {
-      cwd: dir,
-      timeoutMs: Math.min(MAX_BUILD_MS, budget())
-    });
+    const configIssues = validateGradleConfig(dir);
+    let build;
+    if (configIssues.length) {
+      build = { code: 1, stdout: "", stderr: "Pre-build validation failed:\\n" + configIssues.map(x => "- " + x).join("\\n"), timedOut: false };
+    } else {
+      onLog("Checking Gradle configuration before compilation.");
+      const configCheck = await run(invocation.command, [...invocation.prefix, "help", "--no-daemon"], {
+        cwd: dir,
+        timeoutMs: Math.min(120000, budget())
+      });
+      if (configCheck.code !== 0) {
+        build = configCheck;
+      } else {
+        onLog("Gradle configuration check passed. Starting compilation.");
+        build = await run(invocation.command, [...invocation.prefix, "build", "--no-daemon"], {
+          cwd: dir,
+          timeoutMs: Math.min(MAX_BUILD_MS, budget())
+        });
+      }
+    }
     lastBuild = build;
 
     fs.appendFileSync(buildLogPath,
@@ -210,7 +277,7 @@ async function createProject(job, onLog) {
       repairRaw = await chat([
         { role: "system", content: SYSTEM },
         { role: "user", content:
-          `Repair this existing Fabric project using the actual Gradle diagnostics. Return ONLY JSON with the required overview, compatibility object, and files array. Include complete corrected contents for every changed file. Preserve the target Minecraft version and architecture. Fix the reported build errors; do not make unrelated changes.\n\nTarget Minecraft version: ${job.version}\nMod requirements: ${job.prompt}\n\nBuild diagnostics:\n${diagnostics(build)}\n\nCurrent project files:\n${job.fileList.join("\n")}`
+          `Repair this existing Fabric project using the actual Gradle diagnostics. Return ONLY JSON with the required overview, compatibility object, and files array. Include complete corrected contents for every changed file. Preserve the target Minecraft version and architecture. Fix the reported build errors; do not make unrelated changes.\n\nTarget Minecraft version: ${job.version}\nMod requirements: ${job.prompt}\n\nBuild diagnostics:\n${diagnostics(build)}\n\nCurrent project files:\n${job.fileList.join("\n")}\n\nCurrent Gradle configuration and mod metadata (complete file contents):\n${readRepairContext(dir)}`
         }
       ], { timeoutMs: Math.min(MAX_REPAIR_MS, budget()) });
     } catch (error) {
