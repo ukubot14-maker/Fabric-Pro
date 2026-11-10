@@ -1,7 +1,8 @@
 const { Pool } = require("pg");
 
 const connectionString = process.env.DATABASE_URL;
-let ready = false;\nconst pool = connectionString ? new Pool({
+let ready = false;
+const pool = connectionString ? new Pool({
   connectionString,
   ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
   max: 5,
@@ -43,6 +44,7 @@ async function initDatabase() {
     );
     CREATE INDEX IF NOT EXISTS projects_user_updated_idx ON projects(user_id, updated_at DESC);
   `);
+  ready = true;
   return true;
 }
 
