@@ -15,7 +15,7 @@ A professional full-stack web application for AI-assisted Minecraft Fabric mod d
 
 ## Run locally
 
-Requirements: Node.js 20+, npm, an OpenAI API key. For actual Gradle compilation, install a suitable JDK and Gradle, or include a valid Gradle wrapper in the generated project.
+Requirements: Node.js 20+, npm, an OpenAI API key. To compile a generated mod, install a suitable JDK and Gradle, or use a valid Gradle wrapper included in the generated project.
 
 ```bash
 npm install
@@ -40,7 +40,7 @@ Deploy this repository as a Node web service. Set environment variables:
 - `CORS_ORIGINS` — exact frontend origin(s), comma-separated
 - `MAX_ACTIVE_JOBS` — concurrent projects (default 1)
 
-Use persistent disk/storage for `data/` if you want generated ZIPs to survive restarts. The included Dockerfile installs OpenJDK 21 and zip utilities; it does not install Gradle globally. A generated project can provide a wrapper, otherwise the build step reports that compilation was skipped.
+Use persistent disk/storage for `data/` if you want generated ZIPs to survive restarts. The backend does not compile generated projects. Users download and extract the ZIP, then run BUILD.bat (Windows) or ./build.sh (macOS/Linux) to compile locally. The resulting mod JAR is in build/libs.
 
 ### GitHub Pages frontend
 
@@ -62,11 +62,11 @@ Do not add `.env`, API keys, or private server files to the Pages repository.
 
 ## Project time policy
 
-The server assigns a hard 60-minute deadline when a job is accepted and checks it before marking the project complete. Most projects should finish in about 30 minutes; the remaining time is a buffer for larger mods, Gradle compilation, and AI repair attempts. The UI countdown is informational; server enforcement is authoritative. Generation and build operations receive timeouts based on the remaining budget. Jobs cannot continue indefinitely.
+The server assigns a hard 60-minute deadline when a job is accepted. The UI countdown is informational; server enforcement is authoritative. AI generation receives a timeout based on the remaining budget. Gradle compilation happens on the user’s computer, not on the backend.
 
 ## Important engineering notes
 
 - “All versions” means the user can request any Minecraft version. Fabric Loader, Fabric API, Loom, mappings and Java compatibility vary by game version. The generated project must declare its actual target and caveats; do not assume one dependency set works for every release.
-- A successful AI response is not proof that a mod compiles. The UI reports whether Gradle compilation passed, failed, or was skipped.
+- A successful source check is not proof that a mod compiles or works in-game. The report distinguishes structural checks from actual compilation, which the user performs locally.
 - For production, use a persistent job store/queue, authentication, per-user quotas, artifact retention cleanup, stronger sandbox isolation for Gradle builds, and monitoring. This starter keeps jobs in process memory and should run as a single backend instance.
 - Do not execute untrusted generated Gradle projects on a machine containing sensitive credentials. Use an isolated container with restricted network/filesystem access for builds.
