@@ -337,3 +337,113 @@ async function boot() {
   await restoreSession();
 }
 boot();
+
+
+/* Texture Studio: client-side PNG pixel editor and authenticated project save */
+let textureItems = [], activeTextureIndex = -1, textureTool = "pencil", textureUndo = [];
+const textureCanvas = $("texture-canvas");
+const textureCtx = textureCanvas.getContext("2d", { willReadFrequently: true });
+function textureActive() { return textureItems[activeTextureIndex] || null; }
+function textureDraw() {
+  const item = textureActive();
+  textureCtx.clearRect(0, 0, 512, 512);
+  if (!item) return;
+  const off = document.createElement("canvas");
+  off.width = item.width; off.height = item.height;
+  off.getContext("2d").putImageData(item.image, 0, 0);
+  textureCtx.imageSmoothingEnabled = false;
+  textureCtx.drawImage(off, 0, 0, 512, 512);
+  const cellW = 512 / item.width, cellH = 512 / item.height;
+  if (item.width <= 128 && item.height <= 128) {
+    textureCtx.save();
+    textureCtx.strokeStyle = "rgba(210,235,210,.22)";
+    textureCtx.lineWidth = .5;
+    for (let x = 0; x <= item.width; x++) { textureCtx.beginPath(); textureCtx.moveTo(x * cellW, 0); textureCtx.lineTo(x * cellW, 512); textureCtx.stroke(); }
+    for (let y = 0; y <= item.height; y++) { textureCtx.beginPath(); textureCtx.moveTo(0, y * cellH); textureCtx.lineTo(512, y * cellH); textureCtx.stroke(); }
+    textureCtx.restore();
+  }
+  $("texture-name").textContent = item.name;
+  $("texture-dimensions").textContent = item.width + " × " + item.height;
+  $("texture-filename").value = item.name.replace(/\\.png$/i, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0,64) || "custom_texture";
+  $("texture-download").disabled = false;
+  $("texture-undo").disabled = !textureUndo.length;
+  $("texture-save-project").disabled = !currentUser;
+}
+function textureRenderList() {
+  const list = $("texture-assets-list"); list.replaceChildren();
+  if (!textureItems.length) { const p=document.createElement("p"); p.className="empty-state"; p.textContent="Load one or more PNG textures to begin."; list.append(p); return; }
+  textureItems.forEach((item,index)=>{
+    const b=document.createElement("button"); b.type="button"; b.className="texture-asset"+(index===activeTextureIndex?" active":"");
+    const img=document.createElement("img"); img.className="texture-thumb"; img.src=item.url; img.alt="";
+    const span=document.createElement("span"); span.textContent=item.name+" · "+item.width+"×"+item.height;
+    b.append(img,span); b.addEventListener("click",()=>{activeTextureIndex=index;textureUndo=[];textureRenderList();textureDraw();}); list.append(b);
+  });
+}
+function textureSnapshot() { const item=textureActive(); if(item){textureUndo.push(new ImageData(new Uint8ClampedArray(item.image.data),item.width,item.height));if(textureUndo.length>30)textureUndo.shift();} }
+function texturePoint(event) {
+  const rect=textureCanvas.getBoundingClientRect(), item=textureActive();
+  if(!item)return null;
+  return {x:Math.max(0,Math.min(item.width-1,Math.floor((event.clientX-rect.left)/rect.width*item.width))),y:Math.max(0,Math.min(item.height-1,Math.floor((event.clientY-rect.top)/rect.height*item.height)))};
+}
+function texturePaint(event) {
+  const item=textureActive(), point=texturePoint(event); if(!item||!point)return;
+  const idx=(point.y*item.width+point.x)*4, data=item.image.data;
+  if(textureTool==="eraser"){data[idx]=data[idx+1]=data[idx+2]=data[idx+3]=0;}
+  else {const color=$("texture-color").value;data[idx]=parseInt(color.slice(1,3),16);data[idx+1]=parseInt(color.slice(3,5),16);data[idx+2]=parseInt(color.slice(5,7),16);data[idx+3]=255;}
+  textureDraw();
+}
+function textureFlood(point) {
+  const item=textureActive(); if(!item)return;
+  const data=item.image.data, start=(point.y*item.width+point.x)*4, target=[...data.slice(start,start+4)];
+  const color=$("texture-color").value, replacement=[parseInt(color.slice(1,3),16),parseInt(color.slice(3,5),16),parseInt(color.slice(5,7),16),255];
+  if(target.every((v,i)=>v===replacement[i]))return;
+  const stack=[point], seen=new Uint8Array(item.width*item.height);
+  while(stack.length){const p=stack.pop(), pos=p.y*item.width+p.x, i=pos*4;if(seen[pos]||data[i]!==target[0]||data[i+1]!==target[1]||data[i+2]!==target[2]||data[i+3]!==target[3])continue;seen[pos]=1;data.set(replacement,i);if(p.x)stack.push({x:p.x-1,y:p.y});if(p.x+1<item.width)stack.push({x:p.x+1,y:p.y});if(p.y)stack.push({x:p.x,y:p.y-1});if(p.y+1<item.height)stack.push({x:p.x,y:p.y+1});}
+}
+$("texture-upload").addEventListener("change", async event=>{
+  const files=[...event.target.files||[]].filter(file=>file.type==="image/png"||file.name.toLowerCase().endsWith(".png"));
+  for(const file of files){
+    if(file.size>5*1024*1024){$("texture-save-status").textContent=file.name+" is over the 5 MB limit.";continue;}
+    try{const bitmap=await createImageBitmap(file);if(bitmap.width>512||bitmap.height>512){bitmap.close();$("texture-save-status").textContent=file.name+" is larger than 512×512 pixels.";continue;}
+      const c=document.createElement("canvas");c.width=bitmap.width;c.height=bitmap.height;const cx=c.getContext("2d",{willReadFrequently:true});cx.drawImage(bitmap,0,0);bitmap.close();
+      textureItems.push({name:file.name,width:c.width,height:c.height,image:cx.getImageData(0,0,c.width,c.height),url:URL.createObjectURL(file)});
+    }catch{$("texture-save-status").textContent="Could not load "+file.name+". Make sure it is a valid PNG.";}
+  }
+  if(textureItems.length){activeTextureIndex=textureItems.length-1;textureUndo=[];textureRenderList();textureDraw();$("texture-save-status").textContent="Texture loaded. Edit it, then download it or save it into a mod project.";}
+  event.target.value="";
+});
+let texturePainting=false;
+textureCanvas.addEventListener("pointerdown",event=>{const p=texturePoint(event);if(!p)return;event.preventDefault();textureSnapshot();if(textureTool==="fill"){textureFlood(p);textureDraw();return;}texturePainting=true;textureCanvas.setPointerCapture(event.pointerId);texturePaint(event);});
+textureCanvas.addEventListener("pointermove",event=>{if(texturePainting)texturePaint(event);});
+textureCanvas.addEventListener("pointerup",()=>{texturePainting=false;});
+textureCanvas.addEventListener("pointercancel",()=>{texturePainting=false;});
+document.querySelectorAll("[data-tool]").forEach(button=>button.addEventListener("click",()=>{textureTool=button.dataset.tool;document.querySelectorAll("[data-tool]").forEach(b=>b.classList.toggle("active",b===button));}));
+$("texture-undo").addEventListener("click",()=>{const item=textureActive();if(item&&textureUndo.length){item.image=textureUndo.pop();textureDraw();}});
+$("texture-clear").addEventListener("click",()=>{const item=textureActive();if(!item)return;textureSnapshot();item.image.data.fill(0);textureDraw();});
+function texturePngBlob(){const item=textureActive();if(!item)return null;const c=document.createElement("canvas");c.width=item.width;c.height=item.height;c.getContext("2d").putImageData(item.image,0,0);return new Promise(resolve=>c.toBlob(resolve,"image/png"));}
+$("texture-download").addEventListener("click",async()=>{const blob=await texturePngBlob();if(!blob)return;const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(textureActive().name.replace(/\\.png$/i,"")||"texture")+".png";a.click();URL.revokeObjectURL(url);});
+async function loadTextureProjectOptions(){
+  const select=$("texture-project");select.innerHTML="";
+  if(!currentUser){select.add(new Option("Log in to load projects",""));$("texture-save-project").disabled=true;return;}
+  try{const data=await api("/projects");select.add(new Option("Choose a saved mod…",""));data.projects.forEach(p=>select.add(new Option(p.name+" · "+p.minecraft_version,p.id)));$("texture-save-project").disabled=!textureActive();}
+  catch(error){select.add(new Option(error.message,""));}
+}
+$("texture-project").addEventListener("change",()=>{$("texture-save-project").disabled=!currentUser||!textureActive()||!$("texture-project").value;});
+$("texture-save-project").addEventListener("click",async()=>{
+  const item=textureActive(),projectId=$("texture-project").value;
+  if(!item||!projectId){$("texture-save-status").textContent="Load a PNG and choose a saved project first.";return;}
+  const namespace=$("texture-namespace").value.trim().toLowerCase(),filename=$("texture-filename").value.trim().replace(/\\.png$/i,""),kind=$("texture-kind").value;
+  if(!/^[a-z0-9_.-]{1,64}$/.test(namespace)||!/^[a-zA-Z0-9_-]{1,64}$/.test(filename)){ $("texture-save-status").textContent="Use a valid namespace and a file name with letters, numbers, _ or -.";return;}
+  const button=$("texture-save-project");button.disabled=true;button.textContent="SAVING TEXTURE…";
+  try{
+    const blob=await texturePngBlob();const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+    const result=await api("/projects/"+encodeURIComponent(projectId)+"/textures",{method:"POST",body:JSON.stringify({path:"src/main/resources/assets/"+namespace+"/textures/"+kind+"/"+filename+".png",pngDataUrl:dataUrl})});
+    $("texture-save-status").textContent="Saved "+result.path+" into your mod project. Download the project ZIP again to get the updated texture.";
+  }catch(error){$("texture-save-status").textContent=error.message;}
+  finally{button.disabled=!textureActive()||!$("texture-project").value;button.textContent="SAVE TO MOD PROJECT →";}
+});
+$("nav-textures").addEventListener("click",()=>{showWorkspace("textures");$("texture-studio").classList.remove("hidden");$("builder").classList.add("hidden");$("library").classList.add("hidden");$("progress").classList.add("hidden");document.querySelector(".welcome").classList.add("hidden");$("nav-new").classList.remove("active");$("nav-library").classList.remove("active");$("nav-textures").classList.add("active");loadTextureProjectOptions();});
+const originalShowWorkspace=showWorkspace;
+showWorkspace=function(which){originalShowWorkspace(which);$("texture-studio").classList.add("hidden");$("nav-textures").classList.toggle("active",false);};
+const originalUpdateAccountUI=updateAccountUI;
+updateAccountUI=function(){originalUpdateAccountUI();if($("texture-studio")&&!$("texture-studio").classList.contains("hidden"))loadTextureProjectOptions();};
