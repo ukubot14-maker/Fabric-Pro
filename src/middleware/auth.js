@@ -32,7 +32,9 @@ async function createSession(userId) {
 async function requireAuth(req, res, next) {
   try {
     if (!isReady()) return res.status(503).json({ error: "Accounts are not ready yet. The server needs its DATABASE_URL configured." });
-    const authorization = String(req.headers.authorization || "");\n    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";\n    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
+    const authorization = String(req.headers.authorization || "");
+    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
     if (!token || token.length > 128) return res.status(401).json({ error: "Please log in to continue." });
     const result = await pool.query(
       "SELECT u.id,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW()",
