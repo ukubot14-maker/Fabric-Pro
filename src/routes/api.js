@@ -19,7 +19,8 @@ function snapshot(job) {
     status: job.status, phase: job.phase, log: job.log.slice(-50),
     files: job.fileList || [], fileCount: job.fileCount || 0,
     buildStatus: job.buildStatus || "pending", checkErrors: job.checkErrors || [],
-    checkWarnings: job.checkWarnings || [], remainingSeconds: remaining(job), error: job.error || null
+    checkWarnings: job.checkWarnings || [], pendingTexture: job.pendingTexture || null,
+    remainingSeconds: remaining(job), error: job.error || null
   };
 }
 function log(job, message) {
@@ -44,7 +45,7 @@ function readProjectFiles(dir) {
 router.get("/health", (req, res) => res.json({
   ok: true, service: "Fabric Mod AI", limitMinutes: 60,
   accountsConfigured: isReady(),
-  activeJobs: [...jobs.values()].filter(job => job.status === "running").length
+  activeJobs: [...jobs.values()].filter(job => ["running", "waiting_for_texture"].includes(job.status)).length
 }));
 router.get("/versions", async (req, res) => {
   try { res.json(await getVersions()); }
@@ -54,7 +55,7 @@ router.get("/versions", async (req, res) => {
 router.post("/jobs", requireAuth, async (req, res) => {
   if (!isReady()) return res.status(503).json({ error: "Account database is not configured." });
   if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI backend is not configured. Add GROQ_API_KEY to the server environment." });
-  if ([...jobs.values()].filter(job => job.status === "running").length >= MAX_ACTIVE_JOBS) {
+  if ([...jobs.values()].filter(job => ["running", "waiting_for_texture"].includes(job.status)).length >= MAX_ACTIVE_JOBS) {
     return res.status(429).json({ error: "The mod workshop is busy. Try again when the current project finishes." });
   }
   const { name, prompt, version } = req.body || {};
@@ -72,7 +73,14 @@ router.post("/jobs", requireAuth, async (req, res) => {
   log(job, `Accepted project. Hard deadline: ${new Date(job.deadline).toISOString()}.`);
   res.status(202).json(snapshot(job));
 
-  createProject(job, message => { job.phase = message; log(job, message); }).then(async dir => {
+  createProject(job, message => { job.phase = message; log(job, message); }, texture =>
+    new Promise(resolve => {
+      job.status = "waiting_for_texture";
+      job.phase = "Upload " + texture.filename;
+      job.pendingTexture = texture;
+      job.resolveTexture = resolve;
+    })
+  ).then(async dir => {
     if (Date.now() > job.deadline) {
       job.status = "expired"; job.phase = "Time limit reached";
       log(job, "Project exceeded its 60-minute deadline."); return;
@@ -94,6 +102,30 @@ router.post("/jobs", requireAuth, async (req, res) => {
     job.phase = job.status === "expired" ? "Time limit reached" : "Needs attention";
     job.error = error.message; log(job, error.message);
   });
+});
+
+router.post("/jobs/:id/texture", requireAuth, (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job || job.userId !== req.user.id) return res.status(404).json({ error: "Project job not found." });
+  if (job.status !== "waiting_for_texture" || !job.pendingTexture || typeof job.resolveTexture !== "function") {
+    return res.status(409).json({ error: "This project is not waiting for a texture upload." });
+  }
+  const dataUrl = String(req.body?.pngDataUrl || "");
+  const match = dataUrl.match(/^data:image\\/png;base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return res.status(400).json({ error: "Please upload a PNG image." });
+  const buffer = Buffer.from(match[1], "base64");
+  if (buffer.length < 8 || buffer.length > 1024 * 1024 ||
+      !buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+    return res.status(400).json({ error: "PNG must be valid and no larger than 1 MB." });
+  }
+  const resolve = job.resolveTexture;
+  job.resolveTexture = null;
+  job.pendingTexture = null;
+  job.status = "running";
+  job.phase = "Continuing generation";
+  log(job, "Texture upload received. Continuing generation.");
+  resolve(buffer);
+  res.json({ ok: true, message: "Texture received. Generation is continuing." });
 });
 
 router.get("/jobs/:id", requireAuth, (req, res) => {
