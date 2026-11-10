@@ -53,9 +53,9 @@ router.post("/:id/textures", async (req, res, next) => {
   try {
     const filePath = String(req.body?.path || "");
     const dataUrl = String(req.body?.pngDataUrl || "");
-    const allowed = /^src\\/main\\/resources\\/assets\\/[a-z0-9_.-]{1,64}\\/textures\\/(item|block)\\/[a-zA-Z0-9_-]{1,64}\\.png$/;
+    const allowed = /^src\/main\/resources\/assets\/[a-z0-9_.-]{1,64}\/textures\/(item|block)\/[a-zA-Z0-9_-]{1,64}\.png$/;
     if (!allowed.test(filePath)) return res.status(400).json({ error: "Texture path must be inside your mod's item or block texture folder." });
-    const match = dataUrl.match(/^data:image\\/png;base64,([A-Za-z0-9+/=]+)$/);
+    const match = dataUrl.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
     if (!match) return res.status(400).json({ error: "Upload must be a valid PNG image." });
     const buffer = Buffer.from(match[1], "base64");
     if (buffer.length < 8 || buffer.length > 1024 * 1024 || !buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
