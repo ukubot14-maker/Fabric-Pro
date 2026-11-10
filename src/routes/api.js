@@ -6,7 +6,7 @@ const { v4: uuid } = require("uuid");
 const { getVersions } = require("../services/fabric-meta");
 const { createProject } = require("../services/mod-builder");
 const { PROJECTS_DIR, LIMIT_MS, MAX_ACTIVE_JOBS } = require("../utils/config");
-const { pool } = require("../services/database");
+const { pool, isReady } = require("../services/database");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
@@ -43,7 +43,7 @@ function readProjectFiles(dir) {
 
 router.get("/health", (req, res) => res.json({
   ok: true, service: "Fabric Mod AI", limitMinutes: 60,
-  accountsConfigured: !!pool,
+  accountsConfigured: isReady(),
   activeJobs: [...jobs.values()].filter(job => job.status === "running").length
 }));
 router.get("/versions", async (req, res) => {
@@ -52,7 +52,7 @@ router.get("/versions", async (req, res) => {
 });
 
 router.post("/jobs", requireAuth, async (req, res) => {
-  if (!pool) return res.status(503).json({ error: "Account database is not configured." });
+  if (!isReady()) return res.status(503).json({ error: "Account database is not configured." });
   if (!process.env.GROQ_API_KEY) return res.status(503).json({ error: "AI backend is not configured. Add GROQ_API_KEY to the server environment." });
   if ([...jobs.values()].filter(job => job.status === "running").length >= MAX_ACTIVE_JOBS) {
     return res.status(429).json({ error: "The mod workshop is busy. Try again when the current project finishes." });
