@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 let jobId = null, pollTimer = null, deadline = 0;
 let currentUser = null, authMode = "login", currentProject = null;
 let sessionToken = localStorage.getItem("fmai_token") || "";
+let sessionRestorePromise = Promise.resolve();
 
 async function api(path, options = {}) {
   const response = await fetch(API_BASE + "/api" + path, {
@@ -11,7 +12,11 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(sessionToken ? { Authorization: "Bearer " + sessionToken } : {}), ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({ error: "The server returned an unreadable response." }));
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 function stop() { clearInterval(pollTimer); pollTimer = null; }
@@ -55,6 +60,7 @@ function showWorkspace(which) {
   if (library) loadProjects();
 }
 async function loadProjects() {
+  await sessionRestorePromise;
   if (!currentUser) return;
   const list = $("project-list");
   list.replaceChildren();
@@ -209,11 +215,16 @@ async function restoreSession() {
     const data = await api("/auth/me");
     currentUser = data.user;
     updateAccountUI();
-  } catch {
+  } catch (error) {
     currentUser = null;
-    sessionToken = "";
-    localStorage.removeItem("fmai_token");
+    if (error.status === 401 || error.status === 403) {
+      sessionToken = "";
+      localStorage.removeItem("fmai_token");
+    } else if (sessionToken) {
+      setNotice("Could not verify your login right now. Your saved session is being kept; try opening My Mods again in a moment.", true);
+    }
     updateAccountUI();
+    if (!$("texture-studio").classList.contains("hidden")) loadTextureProjectOptions();
   }
 }
 function render(job) {
@@ -312,13 +323,14 @@ $("logout-button").addEventListener("click", async () => {
   finally { currentUser = null; sessionToken = ""; localStorage.removeItem("fmai_token"); updateAccountUI(); setNotice("You have been logged out."); }
 });
 $("nav-new").addEventListener("click", () => showWorkspace("new"));
-$("nav-library").addEventListener("click", () => { if (currentUser) showWorkspace("library"); else openAuth("login"); });
+$("nav-library").addEventListener("click", async () => { await sessionRestorePromise; if (currentUser) showWorkspace("library"); else openAuth("login"); });
 $("refresh-projects").addEventListener("click", loadProjects);
 $("revise-button").addEventListener("click", reviseCurrentProject);
 $("download").addEventListener("click", event => downloadProjectFile(event, $("download").dataset.projectId));
 $("project-download").addEventListener("click", event => downloadProjectFile(event, $("project-download").dataset.projectId));
 
 async function boot() {
+  sessionRestorePromise = restoreSession();
   try {
     const health = await api("/health");
     $("backend-status").textContent = health.ok ? (health.accountsConfigured ? "Online · accounts ready" : "Online · database setup needed") : "Unavailable";
@@ -334,7 +346,7 @@ async function boot() {
   } catch {
     $("version-note").textContent = "Version list unavailable; you can still type a Minecraft version.";
   }
-  await restoreSession();
+  await sessionRestorePromise;
 }
 boot();
 
@@ -348,12 +360,13 @@ $("texture-upload").addEventListener("change",event=>{
   $("texture-save-project").disabled=!currentUser||!$("texture-project").value||!importedTextureFile;
 });
 async function loadTextureProjectOptions(){
+  await sessionRestorePromise;
   const select=$("texture-project");select.innerHTML="";
-  if(!currentUser){select.add(new Option("Log in to load projects",""));$("texture-save-project").disabled=true;return;}
+  if(!currentUser){select.add(new Option(sessionToken?"Could not verify login — try again shortly":"Log in to load projects",""));$("texture-save-project").disabled=true;return;}
   try{
     const data=await api("/projects");select.add(new Option("Choose a saved mod…",""));
     data.projects.forEach(project=>select.add(new Option(project.name+" · "+project.minecraft_version,project.id)));
-  }catch(error){select.add(new Option(error.message,""));}
+  }catch(error){select.add(new Option("Could not load projects — tap Texture Studio again to retry",""));$("texture-save-project").disabled=true;}
 }
 $("texture-project").addEventListener("change",async()=>{
   const projectId=$("texture-project").value;
@@ -362,7 +375,7 @@ $("texture-project").addEventListener("change",async()=>{
   try{
     const data=await api("/projects/"+encodeURIComponent(projectId));
     const metadata=data.project.files.find(file=>file.path==="src/main/resources/fabric.mod.json");
-    if(metadata){const parsed=JSON.parse(metadata.content);if(parsed.id)$("texture-namespace").value=String(parsed.id).toLowerCase().replace(/[^a-z0-9_.-]/g,"_");}
+    if(metadata){JSON.parse(metadata.content);}
   }catch{}
 });
 $("texture-save-project").addEventListener("click",async()=>{
@@ -384,9 +397,11 @@ $("texture-save-project").addEventListener("click",async()=>{
   }catch(error){$("texture-save-status").textContent=error.message;}
   finally{button.disabled=!currentUser||!$("texture-project").value||!importedTextureFile;button.textContent="IMPORT INTO MOD →";}
 });
-$("nav-textures").addEventListener("click",()=>{
+$("nav-textures").addEventListener("click",async()=>{
   $("texture-studio").classList.remove("hidden");$("builder").classList.add("hidden");$("library").classList.add("hidden");$("progress").classList.add("hidden");
-  document.querySelector(".welcome").classList.add("hidden");$("nav-new").classList.remove("active");$("nav-library").classList.remove("active");$("nav-textures").classList.add("active");loadTextureProjectOptions();
+  document.querySelector(".welcome").classList.add("hidden");$("nav-new").classList.remove("active");$("nav-library").classList.remove("active");$("nav-textures").classList.add("active");
+  await sessionRestorePromise;
+  await loadTextureProjectOptions();
 });
 const textureOriginalShowWorkspace=showWorkspace;
 showWorkspace=function(which){textureOriginalShowWorkspace(which);$("texture-studio").classList.add("hidden");$("nav-textures").classList.remove("active");};
