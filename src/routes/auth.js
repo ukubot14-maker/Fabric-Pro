@@ -59,7 +59,7 @@ router.post("/login", databaseRequired, async (req, res, next) => {
 
 router.post("/logout", async (req, res, next) => {
   try {
-    const token = cookieValue(req.headers.cookie, "fmai_session");
+    const authorization = String(req.headers.authorization || "");\n    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";\n    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
     if (pool && token) await pool.query("DELETE FROM sessions WHERE token_hash=$1", [tokenHash(token)]);
     clearSessionCookie(res);
     res.json({ ok: true });
