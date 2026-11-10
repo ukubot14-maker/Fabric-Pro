@@ -1,7 +1,8 @@
 const API_BASE = window.FABRIC_MOD_AI_API || "https://fabric-pro-ai.onrender.com";
 const $ = id => document.getElementById(id);
 let jobId = null, pollTimer = null, deadline = 0;
-let currentUser = null, authMode = "login", currentProject = null;\nlet sessionToken = localStorage.getItem("fmai_token") || "";
+let currentUser = null, authMode = "login", currentProject = null;
+let sessionToken = localStorage.getItem("fmai_token") || "";
 
 async function api(path, options = {}) {
   const response = await fetch(API_BASE + "/api" + path, {
@@ -151,6 +152,8 @@ async function restoreSession() {
   try {
     const data = await api("/auth/me");
     currentUser = data.user;
+    sessionToken = data.token;
+    localStorage.setItem("fmai_token", sessionToken);
     updateAccountUI();
   } catch {
     currentUser = null;
@@ -163,7 +166,8 @@ function render(job) {
   $("filecount").textContent = `${job.fileCount || job.files?.length || 0} files`;
   $("logs").textContent = (job.log || []).map(item =>
     `${item.at ? new Date(item.at).toLocaleTimeString() + "  " : ""}${item.message || item}`
-  ).join("\n");
+  ).join("
+");
   $("logs").scrollTop = $("logs").scrollHeight;
   const seconds = Math.max(0, job.remainingSeconds ?? Math.ceil((deadline - Date.now()) / 1000));
   $("timer").textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
@@ -247,7 +251,7 @@ $("auth-form").addEventListener("submit", async event => {
 });
 $("logout-button").addEventListener("click", async () => {
   try { await api("/auth/logout", { method: "POST", body: "{}" }); }
-  finally { currentUser = null; updateAccountUI(); setNotice("You have been logged out."); }
+  finally { currentUser = null; sessionToken = ""; localStorage.removeItem("fmai_token"); updateAccountUI(); setNotice("You have been logged out."); }
 });
 $("nav-new").addEventListener("click", () => showWorkspace("new"));
 $("nav-library").addEventListener("click", () => { if (currentUser) showWorkspace("library"); else openAuth("login"); });
