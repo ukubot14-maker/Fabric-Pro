@@ -333,6 +333,8 @@ $("create").addEventListener("click", async () => {
   const prompt = $("prompt").value.trim();
   if (prompt.length < 8) { setNotice("Add a little more detail before starting (at least 8 characters).", true); return; }
   $("create").disabled = true;
+  pendingTextureKey = "";
+  $("generation-texture-step").classList.add("hidden");
   $("progress").classList.remove("hidden");
   $("progress").dataset.started = "true";
   $("done").classList.add("hidden");
