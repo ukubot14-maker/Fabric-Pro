@@ -1,7 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
 const { promisify } = require("util");
-const { pool } = require("../services/database");
+const { pool, isReady } = require("../services/database");
 const { createSession, clearSessionCookie, requireAuth, cookieValue, tokenHash } = require("../middleware/auth");
 
 const router = express.Router();
@@ -20,7 +20,7 @@ async function verifyPassword(password, stored) {
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 function databaseRequired(req, res, next) {
-  if (!pool) return res.status(503).json({ error: "Accounts are not configured yet. Add DATABASE_URL to the backend environment." });
+  if (!isReady()) return res.status(503).json({ error: "Accounts are not configured yet. Add DATABASE_URL to the backend environment." });
   next();
 }
 
