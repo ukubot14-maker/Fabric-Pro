@@ -2,6 +2,7 @@ const API_BASE = window.FABRIC_MOD_AI_API || "https://fabric-pro-ai.onrender.com
 const $ = id => document.getElementById(id);
 let jobId = null, pollTimer = null, deadline = 0;
 let currentUser = null, authMode = "login", currentProject = null;
+let savedProjects = null;
 let sessionToken = localStorage.getItem("fmai_token") || "";
 let sessionRestorePromise = Promise.resolve();
 
@@ -70,6 +71,7 @@ async function loadProjects() {
   list.append(loading);
   try {
     const data = await api("/projects");
+    savedProjects = Array.isArray(data.projects) ? data.projects : [];
     list.replaceChildren();
     if (!data.projects.length) {
       const empty = document.createElement("p");
@@ -331,7 +333,7 @@ $("logout-button").addEventListener("click", async () => {
 });
 $("nav-new").addEventListener("click", () => showWorkspace("new"));
 $("nav-library").addEventListener("click", async () => { await ensureSession(); if (currentUser) showWorkspace("library"); else if (!sessionToken) openAuth("login"); else setNotice("Your login could not be verified. Check your connection and tap My Mods again.", true); });
-$("refresh-projects").addEventListener("click", loadProjects);
+$("refresh-projects").addEventListener("click", async () => { savedProjects = null; await loadProjects(); if (!$("texture-studio").classList.contains("hidden")) await loadTextureProjectOptions(); });
 $("revise-button").addEventListener("click", reviseCurrentProject);
 $("download").addEventListener("click", event => downloadProjectFile(event, $("download").dataset.projectId));
 $("project-download").addEventListener("click", event => downloadProjectFile(event, $("project-download").dataset.projectId));
@@ -366,14 +368,36 @@ $("texture-upload").addEventListener("change",event=>{
   $("texture-file-name").textContent=importedTextureFile?importedTextureFile.name+" · "+Math.round(importedTextureFile.size/1024)+" KB":"No PNG selected";
   $("texture-save-project").disabled=!currentUser||!$("texture-project").value||!importedTextureFile;
 });
+function populateTextureProjectOptions(projects){
+  const select=$("texture-project");
+  const previousValue=select.value;
+  select.replaceChildren(new Option("Choose a saved mod…",""));
+  if(!projects.length){
+    select.replaceChildren(new Option("No saved mods found",""));
+    $("texture-save-project").disabled=true;
+    return;
+  }
+  projects.forEach(project=>select.add(new Option(project.name+" · "+project.minecraft_version,project.id)));
+  if(previousValue && projects.some(project=>String(project.id)===previousValue)) select.value=previousValue;
+  $("texture-save-project").disabled=!currentUser||!select.value||!importedTextureFile;
+}
 async function loadTextureProjectOptions(){
   await ensureSession();
-  const select=$("texture-project");select.innerHTML="";
+  const select=$("texture-project");select.replaceChildren();
   if(!currentUser){select.add(new Option(sessionToken?"Could not verify login — try again shortly":"Log in to load projects",""));$("texture-save-project").disabled=true;return;}
   try{
-    const data=await api("/projects");select.add(new Option("Choose a saved mod…",""));
-    data.projects.forEach(project=>select.add(new Option(project.name+" · "+project.minecraft_version,project.id)));
-  }catch(error){select.add(new Option("Could not load projects — tap Texture Studio again to retry",""));$("texture-save-project").disabled=true;}
+    // Reuse the exact project list already shown in My Mods, rather than making
+    // Texture Studio depend on a second request completing independently.
+    if(!Array.isArray(savedProjects)){
+      const data=await api("/projects");
+      savedProjects=Array.isArray(data.projects)?data.projects:[];
+    }
+    populateTextureProjectOptions(savedProjects);
+  }catch(error){
+    select.add(new Option("Could not load projects — tap to retry",""));
+    $("texture-save-project").disabled=true;
+    $("texture-save-status").textContent=error.message;
+  }
 }
 $("texture-project").addEventListener("change",async()=>{
   const projectId=$("texture-project").value;
