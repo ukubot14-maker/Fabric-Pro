@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
 const { chat } = require("./openai");
 const { PROJECTS_DIR } = require("../utils/config");
 
@@ -190,6 +189,79 @@ function readRepairContext(dir) {
   return parts.join("\n\n").slice(-8000) || "No standard Gradle configuration files were found.";
 }
 
+
+function validateSourceProject(dir) {
+  const errors = [], warnings = [];
+  const required = ["settings.gradle", "build.gradle", "src/main/resources/fabric.mod.json"];
+  for (const file of required) if (!fs.existsSync(path.join(dir, file)) &&
+    !(file.endsWith(".gradle") && fs.existsSync(path.join(dir, file + ".kts")))) errors.push("Missing " + file);
+  const javaRoot = path.join(dir, "src/main/java");
+  let javaCount = 0;
+  if (fs.existsSync(javaRoot)) {
+    const walk = d => fs.readdirSync(d, {withFileTypes:true}).forEach(e => {
+      const p = path.join(d,e.name);
+      if (e.isDirectory()) walk(p); else if (e.isFile() && e.name.endsWith(".java")) javaCount++;
+    });
+    walk(javaRoot);
+  }
+  if (!javaCount) errors.push("No Java source files found.");
+  const metadataPath = path.join(dir, "src/main/resources/fabric.mod.json");
+  let metadata = null;
+  if (fs.existsSync(metadataPath)) {
+    try {
+      metadata = JSON.parse(fs.readFileSync(metadataPath,"utf8"));
+      if (!metadata.id || !/^[a-z][a-z0-9_]{1,63}$/.test(metadata.id)) errors.push("fabric.mod.json has an invalid mod id.");
+    } catch (e) { errors.push("fabric.mod.json is invalid JSON: " + e.message); }
+  }
+  for (const file of ["settings.gradle","settings.gradle.kts","build.gradle","build.gradle.kts"]) {
+    const p=path.join(dir,file); if (!fs.existsSync(p)) continue;
+    const s=fs.readFileSync(p,"utf8");
+    if (/TODO_VERSION|REPLACE_ME|<loom-version>|SNAPSHOT/i.test(s)) errors.push(file + " contains an unresolved or SNAPSHOT version.");
+  }
+  const buildPath=["build.gradle","build.gradle.kts"].map(x=>path.join(dir,x)).find(fs.existsSync);
+  if (buildPath && !/fabric-loom/i.test(fs.readFileSync(buildPath,"utf8"))) warnings.push("Fabric Loom declaration not detected.");
+  return {errors,warnings,javaCount,metadata};
+}
+
+function addBuildInstructions(dir) {
+  fs.writeFileSync(path.join(dir,"BUILD.bat"), `@echo off
+setlocal
+cd /d "%~dp0"
+where java >nul 2>nul
+if errorlevel 1 (echo Install a compatible JDK first.& pause & exit /b 1)
+if exist gradlew.bat (call gradlew.bat build) else (
+  where gradle >nul 2>nul
+  if errorlevel 1 (echo Gradle is missing and no wrapper is included.& pause & exit /b 1)
+  call gradle build
+)
+if errorlevel 1 (echo BUILD FAILED.& pause & exit /b 1)
+echo BUILD SUCCESSFUL. Your JAR is in build\libs
+pause
+`, "utf8");
+  fs.writeFileSync(path.join(dir,"build.sh"), `#!/usr/bin/env sh
+set -eu
+cd "$(dirname "$0")"
+if [ -x ./gradlew ]; then exec ./gradlew build; fi
+if command -v gradle >/dev/null 2>&1; then exec gradle build; fi
+echo "Install Gradle or include a Gradle wrapper." >&2
+exit 1
+`, "utf8");
+  fs.writeFileSync(path.join(dir,"BUILD-INSTRUCTIONS.md"), `# Build the Fabric mod JAR
+
+This ZIP contains a Gradle source project, not a compiled JAR.
+
+**Windows:** Install a JDK compatible with the target Minecraft version. Extract the ZIP and double-click BUILD.bat. If no Gradle wrapper is included, install Gradle first.
+
+**macOS/Linux:** Install a compatible JDK and Gradle (unless a wrapper is included), then run ./build.sh.
+
+After a successful build, find the mod JAR in build/libs and copy it into your Minecraft mods folder.
+
+Fabric Mod AI runs lightweight source and metadata checks before creating this ZIP. Those checks do not compile Java or prove in-game functionality. The actual Gradle build is the compilation test.
+
+A general file converter cannot compile Java source code into a working Fabric mod JAR. Gradle must compile and package the project.
+`, "utf8");
+}
+
 async function createProject(job, onLog) {
   const dir = path.join(PROJECTS_DIR, job.id);
   fs.mkdirSync(dir, { recursive: true });
@@ -336,6 +408,37 @@ async function createProject(job, onLog) {
   if (job.buildStatus !== "passed" && lastBuild) {
     onLog("Build did not pass. The ZIP includes BUILD-LOG.txt with the latest diagnostics.");
   }
+
+  addBuildInstructions(dir);
+  onLog("Added BUILD.bat and build.sh so users can compile the JAR on their own computers.");
+
+  const checks = validateSourceProject(dir);
+  const report = [
+    "# " + job.name, "",
+    result.overview || "Generated Fabric mod project", "",
+    "## Compatibility", "",
+    "- Minecraft: " + (result.compatibility?.minecraft || job.version),
+    "- Java: " + (result.compatibility?.java || "See project configuration"),
+    "- Fabric Loader: " + (result.compatibility?.loader || "See project configuration"),
+    "- Notes: " + (result.compatibility?.notes || "Build and test before use."), "",
+    "## Automated source checks", "",
+    checks.errors.length ? "Status: FAILED" : "Status: PASSED",
+    "- Java source files found: " + checks.javaCount,
+    "- fabric.mod.json: " + (checks.metadata ? "valid JSON" : "not validated"),
+    ...checks.errors.map(x => "- ERROR: " + x),
+    ...checks.warnings.map(x => "- WARNING: " + x), "",
+    "These are structural checks only. The server did not compile the Java code or test the mod in Minecraft.", "",
+    "## Create the JAR", "",
+    "Extract the ZIP and run BUILD.bat on Windows or ./build.sh on macOS/Linux. The compiled JAR will be in build/libs.", "",
+    "A general-purpose file converter cannot compile Java source into a Fabric mod JAR. Use the included Gradle build scripts.", ""
+  ].join("\n");
+  fs.writeFileSync(path.join(dir, "FABRIC-MOD-AI-REPORT.md"), report, "utf8");
+  job.buildStatus = checks.errors.length ? "checks-failed" : "checks-passed";
+  job.checkErrors = checks.errors;
+  job.checkWarnings = checks.warnings;
+  if (checks.errors.length) onLog("Source checks found " + checks.errors.length + " issue(s). See FABRIC-MOD-AI-REPORT.md.");
+  else onLog("Lightweight source checks passed. Java compilation and in-game testing have not been performed.");
+  if (checks.warnings.length) onLog("Source checks produced " + checks.warnings.length + " warning(s).");
 
   refreshFileList(dir, job);
   return dir;
