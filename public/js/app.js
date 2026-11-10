@@ -171,8 +171,7 @@ function render(job) {
   $("filecount").textContent = `${job.fileCount || job.files?.length || 0} files`;
   $("logs").textContent = (job.log || []).map(item =>
     `${item.at ? new Date(item.at).toLocaleTimeString() + "  " : ""}${item.message || item}`
-  ).join("
-");
+  ).join("\n");
   $("logs").scrollTop = $("logs").scrollHeight;
   const seconds = Math.max(0, job.remainingSeconds ?? Math.ceil((deadline - Date.now()) / 1000));
   $("timer").textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
