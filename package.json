@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "check": "node --check src/server.js && node --check src/routes/api.js && node --check src/services/mod-builder.js"
+    "check": "node --check src/server.js && node --check src/routes/api.js && node --check src/routes/auth.js && node --check src/routes/projects.js && node --check src/middleware/auth.js && node --check src/services/database.js && node --check src/services/mod-builder.js && node --check public/js/app.js"
   },
   "engines": {
     "node": ">=20"
