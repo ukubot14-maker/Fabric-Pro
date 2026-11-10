@@ -428,7 +428,16 @@ async function loadTextureProjectOptions(){
   try{const data=await api("/projects");select.add(new Option("Choose a saved mod…",""));data.projects.forEach(p=>select.add(new Option(p.name+" · "+p.minecraft_version,p.id)));$("texture-save-project").disabled=!textureActive();}
   catch(error){select.add(new Option(error.message,""));}
 }
-$("texture-project").addEventListener("change",()=>{$("texture-save-project").disabled=!currentUser||!textureActive()||!$("texture-project").value;});
+$("texture-project").addEventListener("change",async()=>{
+  const projectId=$("texture-project").value;
+  $("texture-save-project").disabled=!currentUser||!textureActive()||!projectId;
+  if(!projectId)return;
+  try{
+    const data=await api("/projects/"+encodeURIComponent(projectId));
+    const metadata=data.project.files.find(file=>file.path==="src/main/resources/fabric.mod.json");
+    if(metadata){const parsed=JSON.parse(metadata.content);if(parsed.id)$("texture-namespace").value=String(parsed.id).toLowerCase().replace(/[^a-z0-9_.-]/g,"_");}
+  }catch(error){$("texture-save-status").textContent="Couldn't read the project's mod ID: "+error.message;}
+});
 $("texture-save-project").addEventListener("click",async()=>{
   const item=textureActive(),projectId=$("texture-project").value;
   if(!item||!projectId){$("texture-save-status").textContent="Load a PNG and choose a saved project first.";return;}
