@@ -72,6 +72,7 @@ async function loadProjects() {
   try {
     const data = await api("/projects");
     savedProjects = Array.isArray(data.projects) ? data.projects : [];
+    if (!$("texture-studio").classList.contains("hidden")) populateTextureProjectOptions(savedProjects);
     list.replaceChildren();
     if (!data.projects.length) {
       const empty = document.createElement("p");
@@ -356,6 +357,7 @@ async function boot() {
     $("version-note").textContent = "Version list unavailable; you can still type a Minecraft version.";
   }
   await sessionRestorePromise;
+  if (currentUser) await loadTextureProjectOptions();
 }
 boot();
 
