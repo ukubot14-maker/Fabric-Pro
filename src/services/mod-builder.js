@@ -8,6 +8,33 @@ const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. 
 Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1, use Fabric Loom 1.7.4 with plugin id "fabric-loom". Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "\${modId}" { ... }); never emit a bare "\${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
 
+function normalizeKnownGradleConfig(dir, targetMinecraftVersion) {
+  // Only apply this known compatibility pin to Minecraft 1.21.1.
+  if (String(targetMinecraftVersion) !== "1.21.1") return false;
+
+  let changed = false;
+  for (const file of ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts"]) {
+    const fullPath = path.join(dir, file);
+    if (!fs.existsSync(fullPath)) continue;
+
+    const original = fs.readFileSync(fullPath, "utf8");
+    let updated = original.replace(
+      /(id\s*\(?\s*["']fabric-loom["']\s*\)?\s+version\s+["'])[^"']+(["'])/g,
+      (_match, before, after) => before + "1.7.4" + after
+    );
+    updated = updated.replace(
+      /(net\.fabricmc:fabric-loom:)\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?/g,
+      (_match, before) => before + "1.7.4"
+    );
+
+    if (updated !== original) {
+      fs.writeFileSync(fullPath, updated, "utf8");
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function safePath(p) {
   const s = String(p || "").replace(/\\/g, "/");
   const parts = s.split("/");
