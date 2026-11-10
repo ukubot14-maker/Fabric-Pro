@@ -1,13 +1,13 @@
 const API_BASE = window.FABRIC_MOD_AI_API || "https://fabric-pro-ai.onrender.com";
 const $ = id => document.getElementById(id);
 let jobId = null, pollTimer = null, deadline = 0;
-let currentUser = null, authMode = "login", currentProject = null;
+let currentUser = null, authMode = "login", currentProject = null;\nlet sessionToken = localStorage.getItem("fmai_token") || "";
 
 async function api(path, options = {}) {
   const response = await fetch(API_BASE + "/api" + path, {
     ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) }
+    credentials: "omit",
+    headers: { "Content-Type": "application/json", ...(sessionToken ? { Authorization: "Bearer " + sessionToken } : {}), ...(options.headers || {}) }
   });
   const data = await response.json().catch(() => ({ error: "The server returned an unreadable response." }));
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
