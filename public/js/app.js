@@ -101,7 +101,8 @@ async function openProject(id) {
     $("project-detail").classList.remove("hidden");
     $("detail-name").textContent = project.name;
     $("detail-meta").textContent = `Minecraft ${project.minecraft_version} · ${project.files.length} source files · Updated ${new Date(project.updated_at).toLocaleString()}`;
-    $("project-download").href = API_BASE + "/api/projects/" + encodeURIComponent(project.id) + "/download";
+    $("project-download").href = "#";
+    $("project-download").dataset.projectId = project.id;
     const files = $("project-files");
     files.replaceChildren();
     project.files.forEach((file, index) => {
@@ -124,6 +125,55 @@ async function openProject(id) {
     $("revision-status").textContent = error.message;
   }
 }
+
+async function downloadProjectFile(event, projectId) {
+  event.preventDefault();
+  if (!sessionToken) {
+    openAuth("login");
+    $("auth-status").textContent = "Please log in again to download your mod.";
+    return;
+  }
+  const link = event.currentTarget;
+  const originalText = link.textContent;
+  link.setAttribute("aria-busy", "true");
+  link.style.pointerEvents = "none";
+  try {
+    const response = await fetch(API_BASE + "/api/projects/" + encodeURIComponent(projectId) + "/download", {
+      method: "GET",
+      credentials: "omit",
+      headers: { Authorization: "Bearer " + sessionToken }
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        throw new Error("Your login session expired. Please log out and log back in.");
+      }
+      throw new Error(data.error || `Download failed (${response.status}).`);
+    }
+    const blob = await response.blob();
+    if (!blob.size || (blob.type && !blob.type.includes("zip"))) {
+      throw new Error("The server did not return a ZIP file. Please try again.");
+    }
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    const filename = match ? match[1] : "fabric-mod-project.zip";
+    const objectUrl = URL.createObjectURL(blob);
+    const downloadLink = document.createElement("a");
+    downloadLink.href = objectUrl;
+    downloadLink.download = filename;
+    document.body.append(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    setNotice(error.message, true);
+  } finally {
+    link.removeAttribute("aria-busy");
+    link.style.pointerEvents = "";
+    if (originalText) link.textContent = originalText;
+  }
+}
+
 async function reviseCurrentProject() {
   if (!currentProject) return;
   const instruction = $("revision-input").value.trim();
@@ -180,7 +230,8 @@ function render(job) {
   if (job.status === "completed") {
     $("done").classList.remove("hidden");
     $("build-status").textContent = `Source checks: ${job.buildStatus || "not reported"}. This is a source ZIP, not a compiled JAR. Extract it and run BUILD.bat (Windows) or ./build.sh (Mac/Linux).`;
-    $("download").href = API_BASE + `/api/projects/${encodeURIComponent(job.projectId || job.id)}/download`;
+    $("download").href = "#";
+    $("download").dataset.projectId = job.projectId || job.id;
     stop();
     $("create").disabled = false;
     loadProjects();
@@ -264,6 +315,8 @@ $("nav-new").addEventListener("click", () => showWorkspace("new"));
 $("nav-library").addEventListener("click", () => { if (currentUser) showWorkspace("library"); else openAuth("login"); });
 $("refresh-projects").addEventListener("click", loadProjects);
 $("revise-button").addEventListener("click", reviseCurrentProject);
+$("download").addEventListener("click", event => downloadProjectFile(event, $("download").dataset.projectId));
+$("project-download").addEventListener("click", event => downloadProjectFile(event, $("project-download").dataset.projectId));
 
 async function boot() {
   try {
