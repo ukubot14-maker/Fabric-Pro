@@ -364,10 +364,10 @@ function textureDraw() {
   }
   $("texture-name").textContent = item.name;
   $("texture-dimensions").textContent = item.width + " × " + item.height;
-  $("texture-filename").value = item.name.replace(/\\.png$/i, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0,64) || "custom_texture";
+  $("texture-filename").value = item.name.replace(/\.png$/i, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0,64) || "custom_texture";
   $("texture-download").disabled = false;
   $("texture-undo").disabled = !textureUndo.length;
-  $("texture-save-project").disabled = !currentUser;
+  $("texture-save-project").disabled = !currentUser || !$("texture-project").value;
 }
 function textureRenderList() {
   const list = $("texture-assets-list"); list.replaceChildren();
@@ -421,7 +421,7 @@ document.querySelectorAll("[data-tool]").forEach(button=>button.addEventListener
 $("texture-undo").addEventListener("click",()=>{const item=textureActive();if(item&&textureUndo.length){item.image=textureUndo.pop();textureDraw();}});
 $("texture-clear").addEventListener("click",()=>{const item=textureActive();if(!item)return;textureSnapshot();item.image.data.fill(0);textureDraw();});
 function texturePngBlob(){const item=textureActive();if(!item)return null;const c=document.createElement("canvas");c.width=item.width;c.height=item.height;c.getContext("2d").putImageData(item.image,0,0);return new Promise(resolve=>c.toBlob(resolve,"image/png"));}
-$("texture-download").addEventListener("click",async()=>{const blob=await texturePngBlob();if(!blob)return;const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(textureActive().name.replace(/\\.png$/i,"")||"texture")+".png";a.click();URL.revokeObjectURL(url);});
+$("texture-download").addEventListener("click",async()=>{const blob=await texturePngBlob();if(!blob)return;const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(textureActive().name.replace(/\.png$/i,"")||"texture")+".png";a.click();URL.revokeObjectURL(url);});
 async function loadTextureProjectOptions(){
   const select=$("texture-project");select.innerHTML="";
   if(!currentUser){select.add(new Option("Log in to load projects",""));$("texture-save-project").disabled=true;return;}
@@ -432,7 +432,7 @@ $("texture-project").addEventListener("change",()=>{$("texture-save-project").di
 $("texture-save-project").addEventListener("click",async()=>{
   const item=textureActive(),projectId=$("texture-project").value;
   if(!item||!projectId){$("texture-save-status").textContent="Load a PNG and choose a saved project first.";return;}
-  const namespace=$("texture-namespace").value.trim().toLowerCase(),filename=$("texture-filename").value.trim().replace(/\\.png$/i,""),kind=$("texture-kind").value;
+  const namespace=$("texture-namespace").value.trim().toLowerCase(),filename=$("texture-filename").value.trim().replace(/\.png$/i,""),kind=$("texture-kind").value;
   if(!/^[a-z0-9_.-]{1,64}$/.test(namespace)||!/^[a-zA-Z0-9_-]{1,64}$/.test(filename)){ $("texture-save-status").textContent="Use a valid namespace and a file name with letters, numbers, _ or -.";return;}
   const button=$("texture-save-project");button.disabled=true;button.textContent="SAVING TEXTURE…";
   try{
