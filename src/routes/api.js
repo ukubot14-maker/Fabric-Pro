@@ -161,7 +161,13 @@ router.get("/jobs/:id/download", requireAuth, async (req, res, next) => {
     const archive = archiver("zip", { zlib: { level: 8 } });
     archive.on("error", error => { if (!res.headersSent) next(error); else res.destroy(error); });
     archive.pipe(res);
-    for (const file of result.rows[0].files) archive.append(String(file.content || ""), { name: file.path });
+    for (const file of result.rows[0].files) {
+      if (file.encoding === "base64-png" && String(file.content || "").startsWith("data:image/png;base64,")) {
+        archive.append(Buffer.from(file.content.slice("data:image/png;base64,".length), "base64"), { name: file.path });
+      } else {
+        archive.append(String(file.content || ""), { name: file.path });
+      }
+    }
     archive.finalize();
   } catch (error) { next(error); }
 });
