@@ -248,6 +248,17 @@ function render(job) {
   const seconds = Math.max(0, job.remainingSeconds ?? Math.ceil((deadline - Date.now()) / 1000));
   $("timer").textContent = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   $("fill").style.width = `${Math.min(100, 100 * (1 - seconds / 3600))}%`;
+  const textureStep = $("generation-texture-step");
+  if (job.status === "waiting_for_texture" && job.pendingTexture) {
+    textureStep.classList.remove("hidden");
+    $("generation-texture-name").textContent = job.pendingTexture.filename;
+    $("generation-texture-description").textContent = job.pendingTexture.description || "Upload this PNG texture to continue.";
+    $("generation-texture-file").value = "";
+    $("generation-texture-upload").disabled = true;
+    $("generation-texture-status").textContent = "Waiting for your PNG upload…";
+  } else {
+    textureStep.classList.add("hidden");
+  }
   if (job.status === "completed") {
     $("done").classList.remove("hidden");
     $("build-status").textContent = `Source checks: ${job.buildStatus || "not reported"}. This is a source ZIP, not a compiled JAR. Extract it and run BUILD.bat (Windows) or ./build.sh (Mac/Linux).`;
@@ -268,6 +279,43 @@ async function poll() {
   try { render(await api("/jobs/" + encodeURIComponent(jobId))); }
   catch (error) { setNotice(error.message, true); stop(); $("create").disabled = false; }
 }
+
+$("generation-texture-file").addEventListener("change", () => {
+  $("generation-texture-upload").disabled = !$("generation-texture-file").files?.[0];
+});
+$("generation-texture-upload").addEventListener("click", async () => {
+  const file = $("generation-texture-file").files?.[0];
+  if (!file || !jobId) return;
+  if (file.type !== "image/png" && !file.name.toLowerCase().endsWith(".png")) {
+    $("generation-texture-status").textContent = "Please choose a PNG file.";
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    $("generation-texture-status").textContent = "This PNG is over 1 MB. Please resize it first.";
+    return;
+  }
+  const button = $("generation-texture-upload");
+  button.disabled = true;
+  $("generation-texture-status").textContent = "Uploading texture…";
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    await api("/jobs/" + encodeURIComponent(jobId) + "/texture", {
+      method: "POST",
+      body: JSON.stringify({ pngDataUrl: dataUrl })
+    });
+    $("generation-texture-status").textContent = "Uploaded! Generation is continuing…";
+    $("generation-texture-step").classList.add("hidden");
+    poll();
+  } catch (error) {
+    $("generation-texture-status").textContent = error.message;
+    button.disabled = false;
+  }
+});
 
 $("prompt").addEventListener("input", () => $("char-count").textContent = `${$("prompt").value.length.toLocaleString()} / 12,000`);
 document.querySelectorAll("[data-prompt]").forEach(button => button.addEventListener("click", () => {
