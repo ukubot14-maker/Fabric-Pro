@@ -49,6 +49,30 @@ router.post("/:id/revise", async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post("/:id/textures", async (req, res, next) => {
+  try {
+    const filePath = String(req.body?.path || "");
+    const dataUrl = String(req.body?.pngDataUrl || "");
+    const allowed = /^src\\/main\\/resources\\/assets\\/[a-z0-9_.-]{1,64}\\/textures\\/(item|block)\\/[a-zA-Z0-9_-]{1,64}\\.png$/;
+    if (!allowed.test(filePath)) return res.status(400).json({ error: "Texture path must be inside your mod's item or block texture folder." });
+    const match = dataUrl.match(/^data:image\\/png;base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return res.status(400).json({ error: "Upload must be a valid PNG image." });
+    const buffer = Buffer.from(match[1], "base64");
+    if (buffer.length < 8 || buffer.length > 1024 * 1024 || !buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+      return res.status(400).json({ error: "PNG must be valid and no larger than 1 MB." });
+    }
+    const found = await pool.query("SELECT files FROM projects WHERE id=$1 AND user_id=$2", [req.params.id, req.user.id]);
+    if (!found.rowCount) return res.status(404).json({ error: "Mod project not found." });
+    const files = Array.isArray(found.rows[0].files) ? found.rows[0].files : [];
+    const content = buffer.toString("base64");
+    const existing = files.findIndex(file => file.path === filePath);
+    const entry = { path: filePath, content: "data:image/png;base64," + content, encoding: "base64-png" };
+    if (existing >= 0) files[existing] = entry; else files.push(entry);
+    await pool.query("UPDATE projects SET files=$1::jsonb,updated_at=NOW() WHERE id=$2 AND user_id=$3", [JSON.stringify(files), req.params.id, req.user.id]);
+    res.json({ ok: true, path: filePath, message: "Texture saved to your project." });
+  } catch (error) { next(error); }
+});
+
 router.get("/:id/download", async (req, res, next) => {
   try {
     const found = await pool.query(
@@ -62,7 +86,13 @@ router.get("/:id/download", async (req, res, next) => {
     const archive = archiver("zip", { zlib: { level: 8 } });
     archive.on("error", error => { if (!res.headersSent) next(error); else res.destroy(error); });
     archive.pipe(res);
-    for (const file of found.rows[0].files) archive.append(String(file.content || ""), { name: file.path });
+    for (const file of found.rows[0].files) {
+      if (file.encoding === "base64-png" && String(file.content || "").startsWith("data:image/png;base64,")) {
+        archive.append(Buffer.from(file.content.slice("data:image/png;base64,".length), "base64"), { name: file.path });
+      } else {
+        archive.append(String(file.content || ""), { name: file.path });
+      }
+    }
     archive.finalize();
   } catch (error) { next(error); }
 });
