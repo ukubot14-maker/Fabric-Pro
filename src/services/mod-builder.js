@@ -201,4 +201,32 @@ async function createProject(job, onLog) {
   onLog("Wrote " + count + " source files and packaged the project for local JAR building.");
   return dir;
 }
-module.exports = { createProject };
+
+async function reviseProject(project, instruction) {
+  if (!project || !Array.isArray(project.files) || !project.files.length) throw new Error("Saved project files are missing.");
+  const total = project.files.reduce((n, file) => n + Buffer.byteLength(String(file.content || "")), 0);
+  if (total > 3000000) throw new Error("This project is too large for an AI revision request (3 MB limit).");
+  const raw = await chat([
+    { role: "system", content: SYSTEM + "\\n\\nREVISION MODE: You are editing an existing project. Return the COMPLETE updated project file list in the same JSON schema. Preserve existing working features and files unless the requested change requires editing them. Do not omit source files. Never return only a patch or snippets. Keep paths safe and relative." },
+    { role: "user", content:
+      "Project name: " + project.name + "\\nMinecraft version: " + project.minecraft_version +
+      "\\nOriginal project brief: " + project.prompt +
+      "\\nUser requested change: " + instruction +
+      "\\nCurrent project files as JSON: " + JSON.stringify(project.files)
+    }
+  ], { timeoutMs: 180000 });
+  let result;
+  try { result = JSON.parse(raw); } catch { throw new Error("AI revision response was not valid project JSON."); }
+  if (!Array.isArray(result.files) || !result.files.length) throw new Error("AI revision did not return a complete files array.");
+  const seen = new Set();
+  for (const file of result.files) {
+    if (!file || !safePath(file.path) || typeof file.content !== "string") throw new Error("AI revision returned an unsafe or invalid file.");
+    if (seen.has(file.path)) throw new Error("AI revision returned a duplicate file path: " + file.path);
+    seen.add(file.path);
+  }
+  const totalBytes = result.files.reduce((n, file) => n + Buffer.byteLength(file.content), 0);
+  if (totalBytes > 4000000) throw new Error("Revised project exceeded the 4 MB safety limit.");
+  return { overview: result.overview || project.overview || "", files: result.files };
+}
+
+module.exports = { createProject, reviseProject, safePath };
