@@ -15,7 +15,7 @@ function render(j){
  $("logs").textContent=(j.log||[]).map(x=>`${x.at?new Date(x.at).toLocaleTimeString()+"  ":""}${x.message||x}`).join("\\n");$("logs").scrollTop=$("logs").scrollHeight;
  const s=Math.max(0,j.remainingSeconds??Math.ceil((deadline-Date.now())/1000));
  $("timer").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;$("fill").style.width=`${Math.min(100,100*(1-s/3600))}%`;
- if(j.status==="completed"){$("done").classList.remove("hidden");$("build-status").textContent=`Build status: ${j.buildStatus||"not reported"}. Review the report and build log in the ZIP.`;$("download").href=API_BASE+`/api/jobs/${j.id}/download`;stop();$("create").disabled=false;}
+ if(j.status==="completed"){$("done").classList.remove("hidden");$("build-status").textContent=`Source checks: ${j.buildStatus||"not reported"}. This is a source ZIP, not a compiled JAR. Extract it and run BUILD.bat (Windows) or ./build.sh (Mac/Linux) to create the JAR.`;$("download").href=API_BASE+`/api/jobs/${j.id}/download`;stop();$("create").disabled=false;}
  if(["failed","expired"].includes(j.status)){setNotice(j.error||"The project stopped. Review the build activity for details.",true);stop();$("create").disabled=false;}
 }
 async function poll(){if(!jobId)return;try{render(await api(`/jobs/${jobId}`));}catch(e){setNotice(e.message,true);stop();$("create").disabled=false;}}
