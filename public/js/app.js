@@ -46,7 +46,7 @@ function showWorkspace(which) {
   const library = which === "library";
   $("library").classList.toggle("hidden", !library);
   $("builder").classList.toggle("hidden", library);
-  $("progress").classList.toggle("hidden", library || !$("progress").dataset.started);
+  $("progress").classList.toggle("hidden", library);
   document.querySelector(".welcome").classList.toggle("hidden", library);
   $("nav-new").classList.toggle("active", !library);
   $("nav-library").classList.toggle("active", library);
