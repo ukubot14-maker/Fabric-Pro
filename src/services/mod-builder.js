@@ -207,12 +207,12 @@ async function reviseProject(project, instruction) {
   const total = project.files.reduce((n, file) => n + Buffer.byteLength(String(file.content || "")), 0);
   if (total > 3000000) throw new Error("This project is too large for an AI revision request (3 MB limit).");
   const raw = await chat([
-    { role: "system", content: SYSTEM + "\\n\\nREVISION MODE: You are editing an existing project. Return the COMPLETE updated project file list in the same JSON schema. Preserve existing working features and files unless the requested change requires editing them. Do not omit source files. Never return only a patch or snippets. Keep paths safe and relative." },
+    { role: "system", content: SYSTEM + "\n\nREVISION MODE: You are editing an existing project. Return the COMPLETE updated project file list in the same JSON schema. Preserve existing working features and files unless the requested change requires editing them. Do not omit source files. Never return only a patch or snippets. Keep paths safe and relative." },
     { role: "user", content:
-      "Project name: " + project.name + "\\nMinecraft version: " + project.minecraft_version +
-      "\\nOriginal project brief: " + project.prompt +
-      "\\nUser requested change: " + instruction +
-      "\\nCurrent project files as JSON: " + JSON.stringify(project.files)
+      "Project name: " + project.name + "\nMinecraft version: " + project.minecraft_version +
+      "\nOriginal project brief: " + project.prompt +
+      "\nUser requested change: " + instruction +
+      "\nCurrent project files as JSON: " + JSON.stringify(project.files)
     }
   ], { timeoutMs: 180000 });
   let result;
