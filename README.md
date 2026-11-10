@@ -4,7 +4,7 @@ A professional full-stack web application for AI-assisted Minecraft Fabric mod d
 
 ## What's included
 
-- Responsive developer-workbench UI with project brief, version picker, live activity log and countdown.
+- Responsive developer-workbench UI with project brief, version picker, live activity log and countdown.\n- Account registration and login with scrypt password hashing and secure, HttpOnly sessions.\n- Private My Mods library with saved project source, file viewer, ZIP downloads, and AI-assisted revision requests.\n- PostgreSQL persistence for users, sessions, and generated mod projects.
 - Node.js/Express backend; the OpenAI API key remains server-side.
 - Official Fabric metadata lookup for game and loader versions.
 - Per-project 60-minute server-side hard deadline, plus concurrency and rate limits. Most projects are expected to finish in about 30 minutes; complex projects may use the extra time.
@@ -22,7 +22,7 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set `GROQ_API_KEY`. Optionally set `GROQ_MODEL` (default `openai/gpt-oss-120b`). Then:
+Edit `.env` and set `GROQ_API_KEY`. Set `DATABASE_URL` to a PostgreSQL connection string to enable accounts and saved mods. Optionally set `GROQ_MODEL` (default `openai/gpt-oss-120b`). Then:
 
 ```bash
 npm start
@@ -68,5 +68,6 @@ The server assigns a hard 60-minute deadline when a job is accepted. The UI coun
 
 - “All versions” means the user can request any Minecraft version. Fabric Loader, Fabric API, Loom, mappings and Java compatibility vary by game version. The generated project must declare its actual target and caveats; do not assume one dependency set works for every release.
 - A successful source check is not proof that a mod compiles or works in-game. The report distinguishes structural checks from actual compilation, which the user performs locally.
-- For production, use a persistent job store/queue, authentication, per-user quotas, artifact retention cleanup, stronger sandbox isolation for Gradle builds, and monitoring. This starter keeps jobs in process memory and should run as a single backend instance.
+- Account data, sessions, and saved project files are stored in PostgreSQL. Active generation jobs and their live logs remain in process memory, so run a single backend instance unless a shared job queue is added. Configure a PostgreSQL database before enabling public registration. Apply rate limits and monitor usage.
 - Do not execute untrusted generated Gradle projects on a machine containing sensitive credentials. Use an isolated container with restricted network/filesystem access for builds.
+\n\n## Accounts and saved projects\n\nThe account system uses PostgreSQL via `DATABASE_URL`. On startup, the app creates the required tables automatically. Passwords are stored as scrypt hashes; login sessions are random opaque tokens stored hashed in the database and sent as HttpOnly, SameSite=Lax cookies. Each project is scoped to its owner. Add a PostgreSQL database connection string to Render before expecting registration or login to work.\n
