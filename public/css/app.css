@@ -37,3 +37,35 @@
 #auth-submit{margin-top:10px;justify-content:center;width:100%}
 .auth-footnote{display:block;color:#748477;font-size:9px;line-height:1.6;margin-top:14px}
 @media(max-width:560px){.account-email{display:none}.account-button{padding:7px;font-size:8px}.file-browser{grid-template-columns:1fr}.file-list{max-height:140px}.file-preview{max-height:280px}.detail-head{align-items:flex-start;flex-direction:column}.modal-card{padding:22px}}
+
+/* Texture Studio */
+.texture-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:-5px 0 18px}
+.texture-load{display:inline-flex;align-items:center;cursor:pointer}
+.texture-layout{display:grid;grid-template-columns:minmax(150px,210px) minmax(0,1fr);gap:14px}
+.texture-assets{min-width:0;background:#0b120d;border:1px solid var(--line);border-radius:7px;padding:12px}
+.texture-assets>label,.texture-save-fields>label{display:block;font:9px var(--mono);letter-spacing:1px;color:#aebeaf;margin-bottom:8px}
+.texture-assets-list{display:flex;flex-direction:column;gap:5px;max-height:410px;overflow:auto}
+.texture-asset{display:flex;align-items:center;gap:8px;width:100%;padding:7px;border:1px solid transparent;border-radius:5px;background:#111a13;color:#c4d1c5;text-align:left;font:9px var(--mono);overflow-wrap:anywhere;cursor:pointer}
+.texture-asset.active{border-color:#83bd62;background:#1a2a1c;color:var(--green)}
+.texture-thumb{width:34px;height:34px;object-fit:contain;image-rendering:pixelated;background-color:#202820;background-image:linear-gradient(45deg,#334033 25%,transparent 25%),linear-gradient(-45deg,#334033 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#334033 75%),linear-gradient(-45deg,transparent 75%,#334033 75%);background-size:10px 10px;background-position:0 0,0 5px,5px -5px,-5px 0}
+.texture-editor{min-width:0}
+.texture-meta{display:flex;justify-content:space-between;gap:10px;margin:0 0 9px;font:10px var(--mono);color:#c6d3c6}
+.texture-meta span{color:var(--muted)}
+.texture-canvas-wrap{display:grid;place-items:center;min-height:260px;padding:14px;background:#090f0b;border:1px solid #2d3d30;border-radius:7px;overflow:auto;background-image:linear-gradient(45deg,#172219 25%,transparent 25%),linear-gradient(-45deg,#172219 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#172219 75%),linear-gradient(-45deg,transparent 75%,#172219 75%);background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
+#texture-canvas{display:block;width:min(100%,512px);height:auto;aspect-ratio:1;object-fit:contain;image-rendering:pixelated;touch-action:none;cursor:crosshair;background:transparent}
+.texture-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.texture-tool-buttons{display:flex;flex-wrap:wrap;gap:5px}
+.tool{border:1px solid #344638;background:#101911;color:#bdcbbd;border-radius:5px;padding:8px 10px;font:10px var(--sans);cursor:pointer}
+.tool.active{border-color:#8fc66d;background:#203322;color:var(--green)}
+.color-picker-label{display:flex;align-items:center;gap:7px;color:#aebeaf;font:9px var(--mono)}
+#texture-color{width:34px;height:30px;border:1px solid #405442;border-radius:4px;background:#101911;padding:2px}
+.texture-help{font-size:10px;line-height:1.6;color:#849486;margin:10px 0 0}
+.texture-save{border-top:1px solid var(--line);margin-top:22px;padding-top:20px}
+.texture-save h3{font-size:15px;margin:7px 0}
+.texture-save>div:first-child p{color:var(--muted);font-size:10px}
+.texture-save-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:14px}
+.texture-save-fields>label{align-self:end;margin:0}
+.texture-save-fields input,.texture-save-fields select{width:100%;min-width:0;border:1px solid #344638;border-radius:5px;background:#0c130e;color:var(--text);padding:10px;font:11px var(--sans)}
+#texture-save-project{grid-column:1/-1;margin-top:5px}
+.texture-save .notice{margin-top:9px}
+@media(max-width:700px){.texture-layout{grid-template-columns:1fr}.texture-assets-list{max-height:150px}.texture-canvas-wrap{min-height:220px}.texture-save-fields{grid-template-columns:1fr}.texture-save-fields>label{margin-top:5px}#texture-save-project{grid-column:auto}}
