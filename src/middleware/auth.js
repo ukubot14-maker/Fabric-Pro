@@ -13,12 +13,12 @@ function tokenHash(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 function setSessionCookie(res, token) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `fmai_session=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=None${secure}; Max-Age=2592000`);
+  const cookiePolicy = process.env.NODE_ENV === "production" ? "; SameSite=None; Secure" : "; SameSite=Lax";
+  res.setHeader("Set-Cookie", `fmai_session=${encodeURIComponent(token)}; HttpOnly; Path=/${cookiePolicy}; Max-Age=2592000`);
 }
 function clearSessionCookie(res) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/; SameSite=None${secure}; Max-Age=0`);
+  res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/${cookiePolicy}; Max-Age=0`);
 }
 async function createSession(userId, res) {
   if (!pool) throw new Error("Account database is not configured.");
