@@ -1,7 +1,7 @@
 const { Pool } = require("pg");
 
 const connectionString = process.env.DATABASE_URL;
-const pool = connectionString ? new Pool({
+let ready = false;\nconst pool = connectionString ? new Pool({
   connectionString,
   ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
   max: 5,
@@ -46,4 +46,4 @@ async function initDatabase() {
   return true;
 }
 
-module.exports = { pool, initDatabase };
+module.exports = { pool, initDatabase, isReady: () => ready };
