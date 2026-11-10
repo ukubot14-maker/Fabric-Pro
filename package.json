@@ -1,6 +1,6 @@
 {
   "name": "fabric-mod-ai-pro",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "description": "A full-stack AI workshop for creating Minecraft Fabric mods",
   "main": "src/server.js",
