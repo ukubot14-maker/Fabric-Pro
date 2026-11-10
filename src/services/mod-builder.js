@@ -7,10 +7,6 @@ const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. 
 {"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}]}
 Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1, use Fabric Loom 1.7.4 with plugin id "fabric-loom". Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "\${modId}" { ... }); never emit a bare "\${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
-const MAX_BUILD_ATTEMPTS = 3; // Initial build plus up to two AI repair/build cycles.
-const MAX_BUILD_MS = 8 * 60 * 1000;
-const MAX_REPAIR_MS = 150 * 1000;
-const DIAGNOSTIC_CHARS = 6000;
 
 function safePath(p) {
   const s = String(p || "").replace(/\\/g, "/");
