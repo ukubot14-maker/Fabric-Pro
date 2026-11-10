@@ -51,9 +51,22 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
               required: ["path", "content"],
               additionalProperties: false
             }
+          },
+          textures: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                filename: { type: "string" },
+                path: { type: "string" },
+                description: { type: "string" }
+              },
+              required: ["filename", "path", "description"],
+              additionalProperties: false
+            }
           }
         },
-        required: ["overview", "compatibility", "files"],
+        required: ["overview", "compatibility", "files", "textures"],
         additionalProperties: false
       }
     }
