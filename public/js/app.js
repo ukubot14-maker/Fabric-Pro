@@ -60,7 +60,7 @@ function showWorkspace(which) {
   if (library) loadProjects();
 }
 async function loadProjects() {
-  await sessionRestorePromise;
+  await ensureSession();
   if (!currentUser) return;
   const list = $("project-list");
   list.replaceChildren();
@@ -227,6 +227,13 @@ async function restoreSession() {
     if (!$("texture-studio").classList.contains("hidden")) loadTextureProjectOptions();
   }
 }
+async function ensureSession() {
+  await sessionRestorePromise;
+  if (!currentUser && sessionToken) {
+    sessionRestorePromise = restoreSession();
+    await sessionRestorePromise;
+  }
+}
 function render(job) {
   $("phase").textContent = job.phase || "Working";
   $("status").textContent = `${job.status.toUpperCase()} · ${job.version}`;
@@ -323,7 +330,7 @@ $("logout-button").addEventListener("click", async () => {
   finally { currentUser = null; sessionToken = ""; localStorage.removeItem("fmai_token"); updateAccountUI(); setNotice("You have been logged out."); }
 });
 $("nav-new").addEventListener("click", () => showWorkspace("new"));
-$("nav-library").addEventListener("click", async () => { await sessionRestorePromise; if (currentUser) showWorkspace("library"); else openAuth("login"); });
+$("nav-library").addEventListener("click", async () => { await ensureSession(); if (currentUser) showWorkspace("library"); else if (!sessionToken) openAuth("login"); else setNotice("Your login could not be verified. Check your connection and tap My Mods again.", true); });
 $("refresh-projects").addEventListener("click", loadProjects);
 $("revise-button").addEventListener("click", reviseCurrentProject);
 $("download").addEventListener("click", event => downloadProjectFile(event, $("download").dataset.projectId));
@@ -360,7 +367,7 @@ $("texture-upload").addEventListener("change",event=>{
   $("texture-save-project").disabled=!currentUser||!$("texture-project").value||!importedTextureFile;
 });
 async function loadTextureProjectOptions(){
-  await sessionRestorePromise;
+  await ensureSession();
   const select=$("texture-project");select.innerHTML="";
   if(!currentUser){select.add(new Option(sessionToken?"Could not verify login — try again shortly":"Log in to load projects",""));$("texture-save-project").disabled=true;return;}
   try{
@@ -400,7 +407,7 @@ $("texture-save-project").addEventListener("click",async()=>{
 $("nav-textures").addEventListener("click",async()=>{
   $("texture-studio").classList.remove("hidden");$("builder").classList.add("hidden");$("library").classList.add("hidden");$("progress").classList.add("hidden");
   document.querySelector(".welcome").classList.add("hidden");$("nav-new").classList.remove("active");$("nav-library").classList.remove("active");$("nav-textures").classList.add("active");
-  await sessionRestorePromise;
+  await ensureSession();
   await loadTextureProjectOptions();
 });
 const textureOriginalShowWorkspace=showWorkspace;
