@@ -14,11 +14,11 @@ function tokenHash(token) {
 }
 function setSessionCookie(res, token) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `fmai_session=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000${secure}`);
+  res.setHeader("Set-Cookie", `fmai_session=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=None${secure}; Max-Age=2592000`);
 }
 function clearSessionCookie(res) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);
+  res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/; SameSite=None${secure}; Max-Age=0`);
 }
 async function createSession(userId, res) {
   if (!pool) throw new Error("Account database is not configured.");
