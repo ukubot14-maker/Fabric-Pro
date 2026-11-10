@@ -264,6 +264,21 @@ async function reviseProject(project, instruction) {
     if (/TODO_VERSION|REPLACE_ME|<loom-version>|SNAPSHOT/i.test(content)) errors.push(file + " contains an unresolved or SNAPSHOT version.");
   }
   if (errors.length) throw new Error("AI revision failed source checks: " + errors.join(" "));
+  const report = [
+    "# " + project.name, "",
+    result.overview || project.overview || "Updated Fabric mod project", "",
+    "## Automated source checks", "",
+    "Status: PASSED",
+    "- Java source files found: " + javaFiles.length,
+    "- fabric.mod.json: valid JSON",
+    "- Gradle project files: present", "",
+    "The AI revision passed lightweight structural checks. Java compilation and in-game testing have not been performed.", "",
+    "## Build the JAR", "",
+    "Run BUILD.bat on Windows or ./build.sh on macOS/Linux. The compiled JAR should appear in build/libs.", ""
+  ].join("\n");
+  const reportIndex = result.files.findIndex(file => file.path === "FABRIC-MOD-AI-REPORT.md");
+  if (reportIndex >= 0) result.files[reportIndex].content = report;
+  else result.files.push({ path: "FABRIC-MOD-AI-REPORT.md", content: report });
   return { overview: result.overview || project.overview || "", files: result.files };
 }
 
