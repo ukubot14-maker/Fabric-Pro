@@ -79,6 +79,12 @@ router.post("/jobs", requireAuth, async (req, res) => {
       job.phase = "Upload " + texture.filename;
       job.pendingTexture = texture;
       job.resolveTexture = resolve;
+      job.textureTimeout = setTimeout(() => {
+        job.resolveTexture = null;
+        job.pendingTexture = null;
+        job.status = "expired";
+        reject(new Error("The generation deadline was reached while waiting for a texture upload."));
+      }, Math.max(1000, job.deadline - Date.now()));
     })
   ).then(async dir => {
     if (Date.now() > job.deadline) {
@@ -111,7 +117,7 @@ router.post("/jobs/:id/texture", requireAuth, (req, res) => {
     return res.status(409).json({ error: "This project is not waiting for a texture upload." });
   }
   const dataUrl = String(req.body?.pngDataUrl || "");
-  const match = dataUrl.match(/^data:image\\/png;base64,([A-Za-z0-9+/=]+)$/);
+  const match = dataUrl.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
   if (!match) return res.status(400).json({ error: "Please upload a PNG image." });
   const buffer = Buffer.from(match[1], "base64");
   if (buffer.length < 8 || buffer.length > 1024 * 1024 ||
@@ -119,6 +125,8 @@ router.post("/jobs/:id/texture", requireAuth, (req, res) => {
     return res.status(400).json({ error: "PNG must be valid and no larger than 1 MB." });
   }
   const resolve = job.resolveTexture;
+  clearTimeout(job.textureTimeout);
+  job.textureTimeout = null;
   job.resolveTexture = null;
   job.pendingTexture = null;
   job.status = "running";
@@ -131,7 +139,7 @@ router.post("/jobs/:id/texture", requireAuth, (req, res) => {
 router.get("/jobs/:id", requireAuth, (req, res) => {
   const job = jobs.get(req.params.id);
   if (!job || job.userId !== req.user.id) return res.status(404).json({ error: "Project job not found." });
-  if (job.status === "running" && Date.now() > job.deadline) {
+  if (["running", "waiting_for_texture"].includes(job.status) && Date.now() > job.deadline) {
     job.status = "expired"; job.phase = "Time limit reached"; log(job, "Hard deadline reached.");
   }
   res.json(snapshot(job));
