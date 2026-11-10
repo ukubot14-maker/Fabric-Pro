@@ -226,6 +226,44 @@ async function reviseProject(project, instruction) {
   }
   const totalBytes = result.files.reduce((n, file) => n + Buffer.byteLength(file.content), 0);
   if (totalBytes > 4000000) throw new Error("Revised project exceeded the 4 MB safety limit.");
+
+  const byPath = new Map(result.files.map(file => [file.path, file.content]));
+  for (const supportFile of ["BUILD.bat", "build.sh", "BUILD-INSTRUCTIONS.md"]) {
+    const existing = project.files.find(file => file.path === supportFile);
+    if (existing && !byPath.has(supportFile)) {
+      result.files.push(existing);
+      byPath.set(supportFile, existing.content);
+    }
+  }
+  const hasGradle = byPath.has("build.gradle") || byPath.has("build.gradle.kts");
+  const hasSettings = byPath.has("settings.gradle") || byPath.has("settings.gradle.kts");
+  const javaFiles = result.files.filter(file => file.path.startsWith("src/main/java/") && file.path.endsWith(".java"));
+  const errors = [];
+  if (!hasGradle) errors.push("Missing build.gradle or build.gradle.kts.");
+  if (!hasSettings) errors.push("Missing settings.gradle or settings.gradle.kts.");
+  if (!byPath.has("src/main/resources/fabric.mod.json")) errors.push("Missing fabric.mod.json.");
+  if (!javaFiles.length) errors.push("No Java source files were returned.");
+  const metadataText = byPath.get("src/main/resources/fabric.mod.json");
+  if (metadataText) {
+    try {
+      const metadata = JSON.parse(metadataText);
+      if (!metadata.id || !/^[a-z][a-z0-9_]{1,63}$/.test(metadata.id)) errors.push("fabric.mod.json has an invalid mod id.");
+      const entrypoints = Object.values(metadata.entrypoints || {}).flat();
+      for (const entry of entrypoints) {
+        const className = typeof entry === "string" ? entry : entry && entry.value;
+        if (typeof className === "string" && className.includes(".") && !javaFiles.some(file => file.path.endsWith(className.replace(/\\./g, "/") + ".java"))) {
+          errors.push("Entrypoint class not found in returned Java sources: " + className);
+        }
+      }
+    } catch (error) {
+      errors.push("fabric.mod.json is invalid JSON: " + error.message);
+    }
+  }
+  for (const file of ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"]) {
+    const content = byPath.get(file) || "";
+    if (/TODO_VERSION|REPLACE_ME|<loom-version>|SNAPSHOT/i.test(content)) errors.push(file + " contains an unresolved or SNAPSHOT version.");
+  }
+  if (errors.length) throw new Error("AI revision failed source checks: " + errors.join(" "));
   return { overview: result.overview || project.overview || "", files: result.files };
 }
 
