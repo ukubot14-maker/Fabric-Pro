@@ -51,3 +51,10 @@
 .texture-file-name{display:block;margin-top:8px;color:var(--muted);font:10px var(--mono);overflow-wrap:anywhere}
 #texture-save-project{display:block;margin-top:14px}
 @media(max-width:600px){.texture-step{padding:13px;grid-template-columns:30px minmax(0,1fr)}}
+
+.generation-texture-step{margin-top:16px;padding:18px;border:1px solid #719653;border-radius:8px;background:#142018}
+.generation-texture-step h3{font:18px var(--mono);color:var(--green);margin:9px 0}
+.generation-texture-step p{color:var(--muted);font-size:11px;line-height:1.6}
+.generation-texture-step input[type=file]{display:block;width:100%;margin:12px 0;color:var(--muted);font:11px var(--sans)}
+.generation-file-label{display:inline-flex;cursor:pointer}
+#generation-texture-upload{margin-top:12px}
