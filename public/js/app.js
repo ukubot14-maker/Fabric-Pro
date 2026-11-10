@@ -1,6 +1,6 @@
 const API_BASE = window.FABRIC_MOD_AI_API || "https://fabric-pro-ai.onrender.com";
 const $ = id => document.getElementById(id);
-let jobId = null, pollTimer = null, deadline = 0;
+let jobId = null, pollTimer = null, deadline = 0, pendingTextureKey = "";
 let currentUser = null, authMode = "login", currentProject = null;
 let savedProjects = null;
 let sessionToken = localStorage.getItem("fmai_token") || "";
@@ -250,12 +250,16 @@ function render(job) {
   $("fill").style.width = `${Math.min(100, 100 * (1 - seconds / 3600))}%`;
   const textureStep = $("generation-texture-step");
   if (job.status === "waiting_for_texture" && job.pendingTexture) {
+    const nextTextureKey = job.pendingTexture.path || job.pendingTexture.filename;
+    if (pendingTextureKey !== nextTextureKey) {
+      pendingTextureKey = nextTextureKey;
+      $("generation-texture-file").value = "";
+      $("generation-texture-upload").disabled = true;
+      $("generation-texture-status").textContent = "Waiting for your PNG upload…";
+    }
     textureStep.classList.remove("hidden");
     $("generation-texture-name").textContent = job.pendingTexture.filename;
     $("generation-texture-description").textContent = job.pendingTexture.description || "Upload this PNG texture to continue.";
-    $("generation-texture-file").value = "";
-    $("generation-texture-upload").disabled = true;
-    $("generation-texture-status").textContent = "Waiting for your PNG upload…";
   } else {
     textureStep.classList.add("hidden");
   }
@@ -309,6 +313,7 @@ $("generation-texture-upload").addEventListener("click", async () => {
       body: JSON.stringify({ pngDataUrl: dataUrl })
     });
     $("generation-texture-status").textContent = "Uploaded! Generation is continuing…";
+    pendingTextureKey = "";
     $("generation-texture-step").classList.add("hidden");
     poll();
   } catch (error) {
