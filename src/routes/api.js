@@ -35,7 +35,13 @@ function readProjectFiles(dir) {
       const rel = path.posix.join(relative, entry.name);
       const full = path.join(folder, entry.name);
       if (entry.isDirectory()) walk(full, rel);
-      else if (entry.isFile()) files.push({ path: rel, content: fs.readFileSync(full, "utf8") });
+      else if (entry.isFile()) {
+        if (rel.toLowerCase().endsWith(".png")) {
+          files.push({ path: rel, content: "data:image/png;base64," + fs.readFileSync(full).toString("base64"), encoding: "base64-png" });
+        } else {
+          files.push({ path: rel, content: fs.readFileSync(full, "utf8") });
+        }
+      }
     }
   }
   walk(dir);
