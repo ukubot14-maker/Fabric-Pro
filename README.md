@@ -4,7 +4,10 @@ A professional full-stack web application for AI-assisted Minecraft Fabric mod d
 
 ## What's included
 
-- Responsive developer-workbench UI with project brief, version picker, live activity log and countdown.\n- Account registration and login with scrypt password hashing and secure, HttpOnly sessions.\n- Private My Mods library with saved project source, file viewer, ZIP downloads, and AI-assisted revision requests.\n- PostgreSQL persistence for users, sessions, and generated mod projects.
+- Responsive developer-workbench UI with project brief, version picker, live activity log and countdown.
+- Account registration and login with scrypt password hashing and hashed server-side sessions.
+- Private My Mods library with saved project source, file viewer, ZIP downloads, and AI-assisted revision requests.
+- PostgreSQL persistence for users, sessions, and generated mod projects.
 - Node.js/Express backend; the OpenAI API key remains server-side.
 - Official Fabric metadata lookup for game and loader versions.
 - Per-project 60-minute server-side hard deadline, plus concurrency and rate limits. Most projects are expected to finish in about 30 minutes; complex projects may use the extra time.
@@ -70,4 +73,8 @@ The server assigns a hard 60-minute deadline when a job is accepted. The UI coun
 - A successful source check is not proof that a mod compiles or works in-game. The report distinguishes structural checks from actual compilation, which the user performs locally.
 - Account data, sessions, and saved project files are stored in PostgreSQL. Active generation jobs and their live logs remain in process memory, so run a single backend instance unless a shared job queue is added. Configure a PostgreSQL database before enabling public registration. Apply rate limits and monitor usage.
 - Do not execute untrusted generated Gradle projects on a machine containing sensitive credentials. Use an isolated container with restricted network/filesystem access for builds.
-\n\n## Accounts and saved projects\n\nThe account system uses PostgreSQL via `DATABASE_URL`. On startup, the app creates the required tables automatically. Passwords are stored as scrypt hashes. Login uses random opaque bearer tokens; the browser stores the token locally, while the database stores only its SHA-256 hash. Keep the frontend scripts trusted and avoid injecting untrusted HTML. Each project is scoped to its owner. Add a PostgreSQL database connection string to Render before expecting registration or login to work.\n
+
+
+## Accounts and saved projects
+
+The account system uses PostgreSQL via `DATABASE_URL`. On startup, the app creates the required tables automatically. Passwords are stored as scrypt hashes. Login uses random opaque bearer tokens; the browser stores the token locally, while the database stores only its SHA-256 hash. Keep the frontend scripts trusted and avoid injecting untrusted HTML. Each project is scoped to its owner. Add a PostgreSQL database connection string to Render before expecting registration or login to work.
