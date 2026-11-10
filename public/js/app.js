@@ -382,21 +382,23 @@ function populateTextureProjectOptions(projects){
   $("texture-save-project").disabled=!currentUser||!select.value||!importedTextureFile;
 }
 async function loadTextureProjectOptions(){
+  const select=$("texture-project");
+  select.replaceChildren(new Option("Loading your saved mods…",""));
+  $("texture-save-project").disabled=true;
   await ensureSession();
-  const select=$("texture-project");select.replaceChildren();
-  if(!currentUser){select.add(new Option(sessionToken?"Could not verify login — try again shortly":"Log in to load projects",""));$("texture-save-project").disabled=true;return;}
+  if(!currentUser){
+    select.replaceChildren(new Option(sessionToken?"Could not verify login — try again shortly":"Log in to load projects",""));
+    return;
+  }
   try{
-    // Reuse the exact project list already shown in My Mods, rather than making
-    // Texture Studio depend on a second request completing independently.
-    if(!Array.isArray(savedProjects)){
-      const data=await api("/projects");
-      savedProjects=Array.isArray(data.projects)?data.projects:[];
-    }
+    // Always request the current account's projects when Texture Studio opens.
+    const data=await api("/projects");
+    savedProjects=Array.isArray(data.projects)?data.projects:[];
     populateTextureProjectOptions(savedProjects);
+    if(!savedProjects.length) $("texture-save-status").textContent="No saved mods were returned for this account.";
   }catch(error){
-    select.add(new Option("Could not load projects — tap to retry",""));
-    $("texture-save-project").disabled=true;
-    $("texture-save-status").textContent=error.message;
+    select.replaceChildren(new Option("Could not load projects — tap Texture Studio again to retry",""));
+    $("texture-save-status").textContent="Project loading failed: "+error.message;
   }
 }
 $("texture-project").addEventListener("change",async()=>{
