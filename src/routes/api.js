@@ -8,7 +8,7 @@ const {createProject}=require("../services/mod-builder");
 const {PROJECTS_DIR,LIMIT_MS,MAX_ACTIVE_JOBS}=require("../utils/config");
 const router=express.Router(),jobs=new Map();
 function remaining(j){return Math.max(0,Math.ceil((j.deadline-Date.now())/1000));}
-function snapshot(j){return {id:j.id,name:j.name,version:j.version,status:j.status,phase:j.phase,log:j.log.slice(-50),files:j.fileList||[],fileCount:j.fileCount||0,buildStatus:j.buildStatus||"pending",remainingSeconds:remaining(j),error:j.error||null};}
+function snapshot(j){return {id:j.id,name:j.name,version:j.version,status:j.status,phase:j.phase,log:j.log.slice(-50),files:j.fileList||[],fileCount:j.fileCount||0,buildStatus:j.buildStatus||"pending",checkErrors:j.checkErrors||[],checkWarnings:j.checkWarnings||[],remainingSeconds:remaining(j),error:j.error||null};}
 function log(j,msg){j.log.push({at:new Date().toISOString(),message:msg});j.log=j.log.slice(-100);}
 router.get("/health",(req,res)=>res.json({ok:true,service:"Fabric Mod AI",limitMinutes:60,activeJobs:[...jobs.values()].filter(j=>j.status==="running").length}));
 router.get("/versions",async(req,res)=>{try{res.json(await getVersions());}catch(e){res.status(503).json({error:e.message});}});
