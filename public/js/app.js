@@ -1,4 +1,4 @@
-const API_BASE = window.FABRIC_MOD_AI_API || "";
+const API_BASE = window.FABRIC_MOD_AI_API || "https://fabric-pro-ai.onrender.com";
 const $ = id => document.getElementById(id);
 let jobId = null, pollTimer = null, deadline = 0;
 let currentUser = null, authMode = "login", currentProject = null;
