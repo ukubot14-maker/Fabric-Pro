@@ -15,14 +15,14 @@ A professional full-stack web application for AI-assisted Minecraft Fabric mod d
 
 ## Run locally
 
-Requirements: Node.js 20+, npm, an OpenAI API key. To compile a generated mod, install a suitable JDK and Gradle, or use a valid Gradle wrapper included in the generated project.
+Requirements: Node.js 20+, npm, a Groq API key. To compile a generated mod, install a suitable JDK and Gradle, or use a valid Gradle wrapper included in the generated project.
 
 ```bash
 npm install
 cp .env.example .env
 ```
 
-Edit `.env` and set `OPENAI_API_KEY`. Then:
+Edit `.env` and set `GROQ_API_KEY`. Optionally set `GROQ_MODEL` (default `openai/gpt-oss-120b`). Then:
 
 ```bash
 npm start
