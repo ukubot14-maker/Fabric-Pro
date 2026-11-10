@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { pool } = require("../services/database");
+const { pool, isReady } = require("../services/database");
 
 function cookieValue(header, name) {
   for (const part of String(header || "").split(";")) {
@@ -31,7 +31,7 @@ async function createSession(userId, res) {
 }
 async function requireAuth(req, res, next) {
   try {
-    if (!pool) return res.status(503).json({ error: "Accounts are not ready yet. The server needs its DATABASE_URL configured." });
+    if (!isReady()) return res.status(503).json({ error: "Accounts are not ready yet. The server needs its DATABASE_URL configured." });
     const token = cookieValue(req.headers.cookie, "fmai_session");
     if (!token || token.length > 128) return res.status(401).json({ error: "Please log in to continue." });
     const result = await pool.query(
