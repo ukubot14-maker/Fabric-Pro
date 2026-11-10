@@ -6,7 +6,7 @@ const { PROJECTS_DIR } = require("../utils/config");
 
 const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. Return ONLY valid JSON with this schema:
 {"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}]}
-Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions. Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
+Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1, use Fabric Loom 1.7.4 with plugin id "fabric-loom". Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "${modId}" { ... }); never emit a bare "${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
 const MAX_BUILD_ATTEMPTS = 3; // Initial build plus up to two AI repair/build cycles.
 const MAX_BUILD_MS = 8 * 60 * 1000;
@@ -113,6 +113,29 @@ function diagnostics(result) {
   ].join("\n").slice(-DIAGNOSTIC_CHARS);
 }
 
+function normalizeKnownGradleConfig(dir, targetMinecraftVersion) {
+  // Fabric Maven publishes Loom 1.7.4 as a stable release compatible with
+  // the Minecraft 1.21.1 generation. Models sometimes invent versions like
+  // 1.6.283; normalize this known target before Gradle tries to resolve it.
+  if (String(targetMinecraftVersion).trim() !== "1.21.1") return false;
+
+  let changed = false;
+  for (const name of ["settings.gradle", "build.gradle"]) {
+    const file = path.join(dir, name);
+    if (!fs.existsSync(file)) continue;
+    const before = fs.readFileSync(file, "utf8");
+    const after = before.replace(
+      /(id\\s*\\(?\\s*['"]fabric-loom['"]\\s*\\)?\\s*version\\s*['"])[^'"]+(['"])/g,
+      "$1" + "1.7.4" + "$2"
+    );
+    if (after !== before) {
+      fs.writeFileSync(file, after, "utf8");
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function validateGradleConfig(dir) {
   const issues = [];
   const settingsPath = fs.existsSync(path.join(dir, "settings.gradle"))
@@ -186,6 +209,9 @@ async function createProject(job, onLog) {
   if (!Array.isArray(result.files)) throw new Error("AI response did not contain a files array.");
 
   const count = writeFiles(dir, result.files);
+  if (normalizeKnownGradleConfig(dir, job.version)) {
+    onLog("Normalized Fabric Loom to the verified 1.7.4 release for Minecraft 1.21.1.");
+  }
   fs.writeFileSync(path.join(dir, "FABRIC-MOD-AI-REPORT.md"),
     `# ${job.name}\n\n${result.overview || "Generated Fabric mod project"}\n\n## Compatibility\n\n- Minecraft: ${result.compatibility?.minecraft || job.version}\n- Java: ${result.compatibility?.java || "See README"}\n- Fabric Loader: ${result.compatibility?.loader || "See build.gradle"}\n- Notes: ${result.compatibility?.notes || "Build and test before use."}\n\nGenerated by Fabric Mod AI. Source generation is not proof of a successful build.\n`);
   refreshFileList(dir, job);
@@ -293,6 +319,9 @@ async function createProject(job, onLog) {
 
     try {
       const changed = writeFiles(dir, fixed.files);
+      if (normalizeKnownGradleConfig(dir, job.version)) {
+        onLog("Kept Fabric Loom pinned to the verified 1.7.4 release for Minecraft 1.21.1.");
+      }
       refreshFileList(dir, job);
       onLog(`Applied ${changed} repaired file(s). The next Gradle build will verify the repair.`);
     } catch (error) {
