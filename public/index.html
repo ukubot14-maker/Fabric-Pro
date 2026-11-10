@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101710"><meta name="description" content="AI-powered Minecraft Fabric mod development workshop."><title>Fabric Mod AI — Mod Workshop</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/app.css"></head>
 <body><div class="app-shell">
-<aside class="sidebar"><a class="brand" href="#"><span class="brand-mark">F<span>+</span></span><span><b>FABRIC MOD AI</b><small>DEVELOPER WORKSPACE</small></span></a><div class="side-label">WORKSPACE</div><button class="nav active" id="nav-new" type="button"><span>◈</span> New project</button><button class="nav" id="nav-library" type="button"><span>▤</span> My Mods</button><button class="nav" id="nav-textures" type="button"><span>▧</span> Texture Studio</button><div class="side-card"><span class="pulse"></span><div><b>Workshop status</b><small id="backend-status">Checking backend…</small></div></div><div class="side-bottom"><div class="side-label">BUILD POLICY</div><div class="policy"><b>60:00</b><span>Maximum per project</span><p>Most projects should finish in about 30 minutes. Complex mods and build repairs can use up to one hour.</p></div><small class="version">FABRIC MOD AI · v1.1.4</small></div></aside>
+<aside class="sidebar"><a class="brand" href="#"><span class="brand-mark">F<span>+</span></span><span><b>FABRIC MOD AI</b><small>DEVELOPER WORKSPACE</small></span></a><div class="side-label">WORKSPACE</div><button class="nav active" id="nav-new" type="button"><span>◈</span> New project</button><button class="nav" id="nav-library" type="button"><span>▤</span> My Mods</button><button class="nav" id="nav-textures" type="button"><span>▧</span> Texture Studio</button><div class="side-card"><span class="pulse"></span><div><b>Workshop status</b><small id="backend-status">Checking backend…</small></div></div><div class="side-bottom"><div class="side-label">BUILD POLICY</div><div class="policy"><b>60:00</b><span>Maximum per project</span><p>Most projects should finish in about 30 minutes. Complex mods and build repairs can use up to one hour.</p></div><small class="version">FABRIC MOD AI · v1.1.5</small></div></aside>
 <main class="main"><header class="topbar"><div><span class="crumb">WORKSPACE</span><span class="slash">/</span><b>New mod project</b></div><div class="top-right"><span class="secure">▣ &nbsp;SERVER-SIDE AI</span><span class="version-chip" title="Website release version">v1.1.4</span><span id="account-email" class="account-email hidden"></span><button id="account-button" class="account-button" type="button">LOG IN / SIGN UP</button><button id="logout-button" class="account-button hidden" type="button">LOG OUT</button></div></header>
 <div class="content"><section class="welcome"><div class="eyebrow">THE FABRIC DEVELOPMENT WORKBENCH</div><h1>Build something<br><em>block-breaking.</em></h1><p>Describe the mod. Your AI engineering partner writes the project, checks its structure and metadata, and packages a ZIP with scripts to build the JAR on your computer.</p><div class="capabilities"><span>✳ Fabric API aware</span><span>⌘ Java & Gradle project</span><span>✓ Source checks</span></div></section>
 <section class="card library hidden" id="library">
@@ -15,35 +15,17 @@
 
 
 <section class="card texture-studio hidden" id="texture-studio">
-  <div class="card-head"><div><span class="overline">PIXEL ART WORKBENCH</span><h2>Texture Studio</h2><p>Load Minecraft PNG textures, edit their pixels, then save them straight into one of your saved mod projects.</p></div><span class="fabric-chip">PNG · PIXEL EDITOR</span></div>
-  <div class="texture-toolbar">
-    <label class="secondary texture-load">LOAD TEXTURE PNG<input id="texture-upload" type="file" accept="image/png,.png" multiple hidden></label>
-    <button class="secondary" id="texture-download" type="button" disabled>DOWNLOAD PNG</button>
-    <button class="secondary" id="texture-undo" type="button" disabled>UNDO</button>
-  </div>
-  <div class="texture-layout">
-    <aside class="texture-assets"><label for="texture-assets-list">LOADED TEXTURES</label><div id="texture-assets-list" class="texture-assets-list"><p class="empty-state">Load one or more PNG textures to begin.</p></div><p class="texture-help">Tip: extract PNGs from a Minecraft resource pack first, then load them here.</p></aside>
-    <div class="texture-editor">
-      <div class="texture-meta"><b id="texture-name">No texture loaded</b><span id="texture-dimensions">—</span></div>
-      <div class="texture-canvas-wrap"><canvas id="texture-canvas" width="512" height="512" aria-label="Editable pixel texture grid"></canvas></div>
-      <div class="texture-tools">
-        <div class="texture-tool-buttons"><button type="button" class="tool active" data-tool="pencil">✎ Pencil</button><button type="button" class="tool" data-tool="eraser">◩ Eraser</button><button type="button" class="tool" data-tool="fill">▨ Fill</button></div>
-        <label class="color-picker-label">COLOR <input id="texture-color" type="color" value="#8bdc56"></label>
-        <button class="secondary" id="texture-clear" type="button">CLEAR</button>
-      </div>
-      <p class="texture-help">The editor keeps the original width, height and transparency. Use PNGs from your own Minecraft installation or resource packs.</p>
-    </div>
-  </div>
-  <div class="texture-save">
-    <div><span class="overline">SAVE INTO A MOD</span><h3>Add this texture to a project</h3><p>Select a saved project and choose whether this is an item or block texture.</p></div>
-    <div class="texture-save-fields">
-      <label for="texture-project">SAVED PROJECT</label><select id="texture-project"><option value="">Log in and load your projects</option></select>
-      <label for="texture-namespace">MOD NAMESPACE</label><input id="texture-namespace" value="myfabricmod" maxlength="64">
+  <div class="card-head"><div><span class="overline">TEXTURE IMPORT</span><h2>Texture Studio</h2><p>Create or edit pixel art on Pixilart, download it as a PNG, then import it into your Fabric mod.</p></div><span class="fabric-chip">PNG IMPORT</span></div>
+  <div class="texture-simple">
+    <div class="texture-step"><span>01</span><div><b>Make your texture</b><p>Open Pixilart, create or edit your Minecraft texture, then download it as a PNG. Keep the original Minecraft texture dimensions when possible (often 16×16).</p><a class="primary" href="https://www.pixilart.com/draw" target="_blank" rel="noopener">OPEN PIXILART ↗</a></div></div>
+    <div class="texture-step"><span>02</span><div><b>Import your PNG</b><p>Choose the saved mod project and upload the PNG you downloaded.</p>
+      <label for="texture-project">SAVED MOD PROJECT</label><select id="texture-project"><option value="">Log in and load your projects</option></select>
       <label for="texture-kind">TEXTURE TYPE</label><select id="texture-kind"><option value="item">Item</option><option value="block">Block</option></select>
-      <label for="texture-filename">FILE NAME (WITHOUT .PNG)</label><input id="texture-filename" value="custom_texture" maxlength="64">
-      <button class="primary" id="texture-save-project" type="button" disabled>SAVE TO MOD PROJECT →</button>
-    </div>
-    <p id="texture-save-status" class="notice">Log in and load a texture to save it into a project.</p>
+      <label for="texture-filename">TEXTURE FILE NAME</label><input id="texture-filename" value="custom_texture" maxlength="64" placeholder="e.g. steel_sword">
+      <label class="secondary texture-import-button">CHOOSE PNG FILE<input id="texture-upload" type="file" accept="image/png,.png" hidden></label><span id="texture-file-name" class="texture-file-name">No PNG selected</span>
+      <button class="primary" id="texture-save-project" type="button" disabled>IMPORT INTO MOD →</button>
+    </div></div>
+    <p id="texture-save-status" class="notice">Log in, choose a project and select a PNG to import it.</p>
   </div>
 </section>
 
