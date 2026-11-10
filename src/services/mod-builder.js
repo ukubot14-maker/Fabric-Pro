@@ -151,6 +151,9 @@ function validateGradleConfig(dir) {
   const settings = fs.readFileSync(settingsPath, "utf8");
   const build = fs.readFileSync(buildPath, "utf8");
   const gradleText = settings + "\n" + build;
+  if (gradleText.includes("${modId} {")) {
+    issues.push("Gradle files contain an unquoted ${modId} block; quote the interpolated mod name in Groovy DSL.");
+  }
   if (/<(?:loom-version|fabric-loom-version|minecraft-version|fabric-api-version|version)>|TODO_VERSION|REPLACE_ME/i.test(gradleText)) {
     issues.push("Gradle files contain an unresolved version placeholder.");
   }
