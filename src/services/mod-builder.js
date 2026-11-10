@@ -4,7 +4,7 @@ const { chat } = require("./openai");
 const { PROJECTS_DIR } = require("../utils/config");
 
 const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. Return ONLY valid JSON with this schema:
-{"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}]}
+{"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}],"textures":[{"filename":"example.png","path":"src/main/resources/assets/modid/textures/item/example.png","description":"What the texture should look like"}]}
 Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. Use official Fabric Loom and Fabric API conventions compatible with the requested Minecraft version. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1, use Fabric Loom 1.7.4 with plugin id "fabric-loom". Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "\${modId}" { ... }); never emit a bare "\${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
 
@@ -144,7 +144,7 @@ A general file converter cannot compile Java source code into a working Fabric m
 `, "utf8");
 }
 
-async function createProject(job, onLog) {
+async function createProject(job, onLog, waitForTexture) {
   const dir = path.join(PROJECTS_DIR, job.id);
   fs.mkdirSync(dir, { recursive: true });
   const remainingMs = () => job.deadline - Date.now();
@@ -167,6 +167,31 @@ async function createProject(job, onLog) {
   const count = writeFiles(dir, result.files);
   addBuildInstructions(dir);
   onLog("Added BUILD.bat and build.sh so users can compile the JAR on their own computers.");
+
+  const textures = Array.isArray(result.textures) ? result.textures.slice(0, 12) : [];
+  for (const texture of textures) {
+    const texturePath = String(texture.path || "").replace(/\\/g, "/");
+    const allowed = /^src\\/main\\/resources\\/assets\\/[a-z0-9_.-]{1,64}\\/textures\\/(item|block)\\/[a-zA-Z0-9_-]{1,64}\\.png$/;
+    if (!allowed.test(texturePath) || !safePath(texturePath)) {
+      onLog("Skipped an invalid texture request from the AI: " + String(texture.filename || "unnamed"));
+      continue;
+    }
+    const filename = path.posix.basename(texturePath);
+    onLog("Texture needed: " + filename + ". Waiting for your upload.");
+    const imageBuffer = await waitForTexture({
+      filename,
+      path: texturePath,
+      description: String(texture.description || "Upload the PNG texture requested for this mod.")
+    });
+    if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length < 8 ||
+        !imageBuffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+      throw new Error("The uploaded texture was not a valid PNG: " + filename);
+    }
+    const destination = path.join(dir, texturePath);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, imageBuffer);
+    onLog("Added " + filename + ". Continuing mod generation.");
+  }
 
   const checks = validateSourceProject(dir);
   const report = [
