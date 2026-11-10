@@ -149,14 +149,19 @@ async function reviseCurrentProject() {
   }
 }
 async function restoreSession() {
+  if (!sessionToken) {
+    currentUser = null;
+    updateAccountUI();
+    return;
+  }
   try {
     const data = await api("/auth/me");
     currentUser = data.user;
-    sessionToken = data.token;
-    localStorage.setItem("fmai_token", sessionToken);
     updateAccountUI();
   } catch {
     currentUser = null;
+    sessionToken = "";
+    localStorage.removeItem("fmai_token");
     updateAccountUI();
   }
 }
@@ -240,6 +245,8 @@ $("auth-form").addEventListener("submit", async event => {
       body: JSON.stringify({ email: $("auth-email").value, password: $("auth-password").value })
     });
     currentUser = data.user;
+    sessionToken = data.token;
+    localStorage.setItem("fmai_token", sessionToken);
     updateAccountUI();
     closeAuth();
     $("auth-password").value = "";
