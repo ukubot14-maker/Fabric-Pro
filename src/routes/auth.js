@@ -38,8 +38,8 @@ router.post("/register", databaseRequired, async (req, res, next) => {
       if (error.code === "23505") return res.status(409).json({ error: "An account with that email already exists. Log in instead." });
       throw error;
     }
-    await createSession(id, res);
-    res.status(201).json({ user: { id, email } });
+    const token = await createSession(id);
+    res.status(201).json({ user: { id, email }, token });
   } catch (error) { next(error); }
 });
 
@@ -52,14 +52,16 @@ router.post("/login", databaseRequired, async (req, res, next) => {
     if (!result.rowCount || !(await verifyPassword(password, result.rows[0].password_hash))) {
       return res.status(401).json({ error: "Email or password is incorrect." });
     }
-    await createSession(result.rows[0].id, res);
-    res.json({ user: { id: result.rows[0].id, email: result.rows[0].email } });
+    const token = await createSession(result.rows[0].id);
+    res.json({ user: { id: result.rows[0].id, email: result.rows[0].email }, token });
   } catch (error) { next(error); }
 });
 
 router.post("/logout", async (req, res, next) => {
   try {
-    const authorization = String(req.headers.authorization || "");\n    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";\n    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
+    const authorization = String(req.headers.authorization || "");
+    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
     if (pool && token) await pool.query("DELETE FROM sessions WHERE token_hash=$1", [tokenHash(token)]);
     clearSessionCookie(res);
     res.json({ ok: true });
