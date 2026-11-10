@@ -20,19 +20,19 @@ function clearSessionCookie(res) {
   const cookiePolicy = process.env.NODE_ENV === "production" ? "; SameSite=None; Secure" : "; SameSite=Lax";
   res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/${cookiePolicy}; Max-Age=0`);
 }
-async function createSession(userId, res) {
-  if (!pool) throw new Error("Account database is not configured.");
+async function createSession(userId) {
+  if (!isReady()) throw new Error("Account database is not configured.");
   const token = crypto.randomBytes(32).toString("base64url");
   await pool.query(
     "INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')",
     [tokenHash(token), userId]
   );
-  setSessionCookie(res, token);
+  return token;
 }
 async function requireAuth(req, res, next) {
   try {
     if (!isReady()) return res.status(503).json({ error: "Accounts are not ready yet. The server needs its DATABASE_URL configured." });
-    const token = cookieValue(req.headers.cookie, "fmai_session");
+    const authorization = String(req.headers.authorization || "");\n    const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";\n    const token = bearer || cookieValue(req.headers.cookie, "fmai_session");
     if (!token || token.length > 128) return res.status(401).json({ error: "Please log in to continue." });
     const result = await pool.query(
       "SELECT u.id,u.email FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>NOW()",
