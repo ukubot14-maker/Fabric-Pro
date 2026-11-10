@@ -17,7 +17,7 @@ function setSessionCookie(res, token) {
   res.setHeader("Set-Cookie", `fmai_session=${encodeURIComponent(token)}; HttpOnly; Path=/${cookiePolicy}; Max-Age=2592000`);
 }
 function clearSessionCookie(res) {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  const cookiePolicy = process.env.NODE_ENV === "production" ? "; SameSite=None; Secure" : "; SameSite=Lax";
   res.setHeader("Set-Cookie", `fmai_session=; HttpOnly; Path=/${cookiePolicy}; Max-Age=0`);
 }
 async function createSession(userId, res) {
