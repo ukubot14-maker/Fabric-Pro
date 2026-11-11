@@ -80,7 +80,7 @@ router.post("/jobs", requireAuth, async (req, res) => {
   res.status(202).json(snapshot(job));
 
   createProject(job, message => { job.phase = message; log(job, message); }, texture =>
-    new Promise(resolve => {
+    new Promise((resolve, reject) => {
       job.status = "waiting_for_texture";
       job.phase = "Upload " + texture.filename;
       job.pendingTexture = texture;
