@@ -183,7 +183,10 @@ function addBuildInstructions(dir, targetMinecraftVersion) {
   const ps1 = [
     "$ErrorActionPreference = 'Stop'",
     "Set-Location $PSScriptRoot",
+    "$previousErrorActionPreference = $ErrorActionPreference",
+    "$ErrorActionPreference = 'Continue'",
     "$javaText = (& java -version 2>&1 | Out-String)",
+    "$ErrorActionPreference = $previousErrorActionPreference",
     "if ($javaText -notmatch 'version \"(\\d+)') { throw 'Could not detect Java. Install the required JDK.' }",
     "$javaMajor = [int]$Matches[1]",
     "if ($javaMajor -lt " + requiredJava + ") { throw 'This project requires JDK " + requiredJava + " or newer. Install it, then reopen this window.' }",
