@@ -28,7 +28,7 @@ function normalizeKnownGradleConfig(dir, targetMinecraftVersion) {
     );
 
     updated = updated.replace(/^\\s*splitEnvironmentSourceSets\\(\\)\\s*;?\\s*$/gm, "");\n    updated = updated.replace(/^\\s*accessWidenerPath\\s*=.*(?:\\r?\\n|$)/gm, "");\n\n    updated = updated.replace(/^\s*splitEnvironmentSourceSets\(\)\s*;?\s*$/gm, "");
-    updated = updated.replace(/^\s*accessWidenerPath\s*=.*(?:\r?\n|$)/gm, "");
+    updated = updated.replace(/^\s*accessWidenerPath\s*=.*\$\{modId\}.*(?:\r?\n|$)/gm, "");
 
     if (updated !== original) {
       fs.writeFileSync(fullPath, updated, "utf8");
