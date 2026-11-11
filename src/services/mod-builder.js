@@ -158,7 +158,14 @@ function validateSourceProject(dir) {
 }
 
 function addBuildInstructions(dir, targetMinecraftVersion) {
-  const requiredJava = /^26\./.test(String(targetMinecraftVersion || "")) ? 25 : 21;
+  const targetMatch = String(targetMinecraftVersion || "").match(/^(\\d+)\\.(\\d+)(?:\\.(\\d+))?/);
+  const major = targetMatch ? Number(targetMatch[1]) : 1;
+  const minor = targetMatch ? Number(targetMatch[2]) : 21;
+  const patch = targetMatch && targetMatch[3] ? Number(targetMatch[3]) : 0;
+  const requiredJava = major >= 26 ? 25 :
+    (major === 1 && (minor > 20 || (minor === 20 && patch >= 5))) ? 21 :
+    (major === 1 && minor >= 18) ? 17 :
+    (major === 1 && minor >= 17) ? 16 : 8;
   const bat = [
     "@echo off",
     "setlocal",
