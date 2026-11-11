@@ -406,8 +406,12 @@ async function boot() {
   }
   try {
     const versions = await api("/versions");
-    $("versions").innerHTML = versions.games.filter(item => item.stable && /^(?:1\.\d+(?:\.\d+)?|26\.[1-3])$/.test(item.version)).map(item => `<option value="${item.version}">${item.version}</option>`).join("");
-    const supported = versions.games.filter(item => item.stable && /^(?:1\\.\\d+(?:\\.\\d+)?|26\\.[1-3])$/.test(item.version));\n    $("version-note").textContent = `Choose an exact stable Minecraft version. ${supported.length} versions loaded, including 26.1–26.3 when available from Fabric.`;\n    if (supported.length) $("version").value = supported.some(item => item.version === "26.3") ? "26.3" : supported[0].version;
+    const supported = versions.games.filter(item =>
+      item.stable && (/^1\.\d+(?:\.\d+)?$/.test(item.version) || /^26\.[1-3]$/.test(item.version))
+    );
+    $("version").replaceChildren(...supported.map(item => new Option(item.version, item.version)));
+    $("version-note").textContent = `Choose an exact stable Minecraft version. ${supported.length} versions loaded; 26.1–26.3 appear when published as stable by Fabric.`;
+    if (supported.length) $("version").value = supported.some(item => item.version === "26.3") ? "26.3" : supported[0].version;
   } catch {
     $("version-note").textContent = "Version list unavailable; you can still type a Minecraft version.";
   }
