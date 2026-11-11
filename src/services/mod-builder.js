@@ -157,16 +157,15 @@ function validateSourceProject(dir) {
   return {errors,warnings,javaCount,metadata};
 }
 
-function addBuildInstructions(dir) {
+function addBuildInstructions(dir, targetMinecraftVersion) {
+  const requiredJava = /^26\./.test(String(targetMinecraftVersion || "")) ? 25 : 21;
   const bat = [
     "@echo off",
     "setlocal",
     "cd /d \"%~dp0\"",
     "where java >nul 2>nul",
     "if errorlevel 1 (echo Install the Java JDK required by this Minecraft version first.& pause & exit /b 1)",
-    "if exist gradlew.bat (call gradlew.bat build) else (",
-    "  powershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0build.ps1\"",
-    ")",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0build.ps1\"",
     "if errorlevel 1 (echo BUILD FAILED.& pause & exit /b 1)",
     "echo BUILD SUCCESSFUL. Your JAR is in build\\libs",
     "pause",
@@ -177,6 +176,11 @@ function addBuildInstructions(dir) {
   const ps1 = [
     "$ErrorActionPreference = 'Stop'",
     "Set-Location $PSScriptRoot",
+    "$javaText = (& java -version 2>&1 | Out-String)",
+    "if ($javaText -notmatch 'version \"(\\d+)') { throw 'Could not detect Java. Install the required JDK.' }",
+    "$javaMajor = [int]$Matches[1]",
+    "if ($javaMajor -lt ${requiredJava}) { throw 'This project requires JDK ${requiredJava} or newer. Install it, then reopen this window.' }",
+    "if (Test-Path (Join-Path $PSScriptRoot 'gradlew.bat')) { & (Join-Path $PSScriptRoot 'gradlew.bat') build; exit $LASTEXITCODE }",
     "$props = Join-Path $PSScriptRoot 'gradle/wrapper/gradle-wrapper.properties'",
     "if (-not (Test-Path $props)) { throw 'Missing gradle/wrapper/gradle-wrapper.properties. The project has no pinned Gradle version.' }",
     "$line = Get-Content $props | Where-Object { $_ -match '^distributionUrl=' } | Select-Object -First 1",
@@ -207,6 +211,10 @@ function addBuildInstructions(dir) {
     "#!/usr/bin/env sh",
     "set -eu",
     "cd \"$(dirname \"$0\")\"",
+    "JAVA_TEXT=$(java -version 2>&1 | head -n 1)",
+    "JAVA_MAJOR=$(printf '%s' \"$JAVA_TEXT\" | sed -n 's/.*version \"\\([0-9][0-9]*\\).*/\\1/p')",
+    "[ -n \"$JAVA_MAJOR\" ] || { echo 'Could not detect Java. Install the required JDK.' >&2; exit 1; }",
+    "[ \"$JAVA_MAJOR\" -ge ${requiredJava} ] || { echo 'This project requires JDK ${requiredJava} or newer.' >&2; exit 1; }",
     "if [ -x ./gradlew ]; then exec ./gradlew build; fi",
     "PROPS=gradle/wrapper/gradle-wrapper.properties",
     "[ -f \"$PROPS\" ] || { echo 'Missing pinned Gradle wrapper properties.' >&2; exit 1; }",
@@ -233,9 +241,11 @@ function addBuildInstructions(dir) {
     "",
     "This project pins its own Gradle version in gradle/wrapper/gradle-wrapper.properties.",
     "",
-    "**Windows:** Install the required Java JDK, extract the ZIP, and double-click BUILD.bat. The script downloads and uses this project's exact Gradle version automatically; it does not use a mismatched system Gradle installation.",
+    "**Java:** This project requires JDK ${requiredJava} or newer. Download a JDK from https://adoptium.net/temurin/releases/?version=${requiredJava} and install it before building.",
     "",
-    "**macOS/Linux:** Install the required Java JDK and run ./build.sh. The script downloads and uses the pinned Gradle version automatically.",
+    "**Windows:** Extract the ZIP and double-click BUILD.bat. The script checks Java and downloads/uses this project's exact Gradle version automatically; it does not use a mismatched system Gradle installation.",
+    "",
+    "**macOS/Linux:** Install the required JDK and run ./build.sh. The script checks Java and downloads/uses the pinned Gradle version automatically.",
     "",
     "After a successful build, find the mod JAR in build/libs and copy it into your Minecraft mods folder.",
     "",
@@ -266,7 +276,7 @@ async function createProject(job, onLog, waitForTexture) {
 
   const count = writeFiles(dir, result.files);
   if (normalizeGradleToolchain(dir, job.version)) onLog("Pinned the matching Fabric Loom and Gradle toolchain for Minecraft " + job.version + ". BUILD.bat will install and use that exact Gradle version.");
-  addBuildInstructions(dir);
+  addBuildInstructions(dir, job.version);
   onLog("Added BUILD.bat and build.sh so users can compile the JAR on their own computers.");
 
   const textures = Array.isArray(result.textures) ? result.textures.slice(0, 12) : [];
