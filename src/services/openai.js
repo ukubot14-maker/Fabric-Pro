@@ -14,7 +14,7 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
     const body = {
   model: MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-120b",
   temperature: 0.2,
-  max_completion_tokens: 24000,
+  max_completion_tokens: 65536,
   reasoning_effort: "low",
   messages
 };
@@ -40,18 +40,6 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
             required: ["minecraft", "java", "loader", "notes"],
             additionalProperties: false
           },
-          files: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                path: { type: "string" },
-                content: { type: "string" }
-              },
-              required: ["path", "content"],
-              additionalProperties: false
-            }
-          },
           textures: {
             type: "array",
             items: {
@@ -62,6 +50,18 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
                 description: { type: "string" }
               },
               required: ["filename", "path", "description"],
+              additionalProperties: false
+            }
+          },
+          files: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                path: { type: "string" },
+                content: { type: "string" }
+              },
+              required: ["path", "content"],
               additionalProperties: false
             }
           }
@@ -92,7 +92,11 @@ async function chat(messages, { timeoutMs = 120000, json = true } = {}) {
       throw new Error(data.error?.message || `Groq API returned ${response.status}`);
     }
 
-    const content = data.choices?.[0]?.message?.content;
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === "length") {
+      throw new Error("The AI reached its 65,536-token output limit before finishing the project. Try a smaller mod request.");
+    }
+    const content = choice?.message?.content;
 
     if (!content) {
       throw new Error("Groq returned an empty response.");
