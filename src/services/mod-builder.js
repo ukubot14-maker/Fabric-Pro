@@ -111,9 +111,9 @@ setlocal
 cd /d "%~dp0"
 where java >nul 2>nul
 if errorlevel 1 (echo Install a compatible JDK first.& pause & exit /b 1)
-if exist gradlew.bat (call gradlew.bat build) else (
+if exist gradlew.bat (call gradlew.bat build) else if exist "%USERPROFILE%\gradle-8.8\bin\gradle.bat" (call "%USERPROFILE%\gradle-8.8\bin\gradle.bat" build) else (
   where gradle >nul 2>nul
-  if errorlevel 1 (echo Gradle is missing and no wrapper is included.& pause & exit /b 1)
+  if errorlevel 1 (echo Gradle is missing. Install the Gradle version required by this project or include a wrapper.& pause & exit /b 1)
   call gradle build
 )
 if errorlevel 1 (echo BUILD FAILED.& pause & exit /b 1)
