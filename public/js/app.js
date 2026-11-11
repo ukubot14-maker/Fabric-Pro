@@ -409,8 +409,12 @@ async function boot() {
     const supported = versions.games.filter(item =>
       item.stable && (/^1\.\d+(?:\.\d+)?$/.test(item.version) || /^26\.[1-3]$/.test(item.version))
     );
-    $("version").replaceChildren(...supported.map(item => new Option(item.version, item.version)));
-    $("version-note").textContent = `Choose an exact stable Minecraft version. ${supported.length} versions loaded; 26.1–26.3 appear when published as stable by Fabric.`;
+    for (const version of ["26.1", "26.2", "26.3"]) {
+      if (!supported.some(item => item.version === version)) supported.push({ version, stable: false });
+    }
+    supported.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+    $("version").replaceChildren(...supported.map(item => new Option(item.version + (item.stable ? "" : " · verify toolchain"), item.version)));
+    $("version-note").textContent = `Choose an exact version. 26.1–26.3 are available; entries marked “verify toolchain” may need current Fabric releases before they can build.`;
     if (supported.length) $("version").value = supported.some(item => item.version === "26.3") ? "26.3" : supported[0].version;
   } catch {
     $("version-note").textContent = "Version list unavailable; you can still type a Minecraft version.";
