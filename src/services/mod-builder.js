@@ -5,35 +5,71 @@ const { PROJECTS_DIR } = require("../utils/config");
 
 const SYSTEM = `You are Fabric Mod AI, an expert Minecraft Fabric mod engineer. Return ONLY valid JSON with this schema:
 {"overview":"short explanation","compatibility":{"minecraft":"version","java":"version","loader":"version range","notes":"honest caveats"},"files":[{"path":"relative/path","content":"complete text file content"}],"textures":[{"filename":"example.png","path":"src/main/resources/assets/modid/textures/item/example.png","description":"What the texture should look like"}]}
-Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. When the requested mod introduces custom items or blocks that need artwork, include one texture request per custom PNG in the textures array. Each request must contain the exact filename, a safe path under src/main/resources/assets/<modid>/textures/item/ or block/, and a concise visual description. Request only original artwork the user should provide, not vanilla Minecraft textures. If no custom artwork is needed, return an empty textures array. Use official Fabric Loom, Fabric Loader, Yarn/Mojang mappings, and Fabric API conventions compatible with the EXACT requested Minecraft version. The supported modern targets include Minecraft 26.1, 26.2, and 26.3; these are distinct versions, never interpret the word latest as a version. For 26.1–26.3, use the current version-specific Fabric toolchain and APIs; do not copy old 1.21.x build scripts, Java APIs, item constructors, registry identifiers, creative tabs, or tool-material constants. Select exact compatible stable versions from official Fabric metadata/Maven releases; if a compatible stable toolchain cannot be verified, state that clearly in compatibility.notes rather than inventing versions. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1 only, use Fabric Loom 1.7.4 with plugin id "fabric-loom" and a Gradle 8.8-compatible build. For 26.1–26.3, do not use Loom 1.7.4; use the compatible current Loom and Gradle versions for that exact game release. Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. Never emit accessWidenerPath/accessWidener configuration unless you also create the exact matching access widener file and declare it correctly. Do not use splitEnvironmentSourceSets unless the selected Loom version supports it. Do not create unresolved literal paths such as \${modId}.accesswidener. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "\${modId}" { ... }); never emit a bare "\${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Before returning, cross-check every Java constructor, method override, registry call, item/tool material, creative tab API, and metadata field against the selected Minecraft/Fabric API version. Ensure source code and Gradle configuration target the same exact Minecraft version. Do not use getAttackDamage() or guessed ToolMaterial constants; use the actual target-version API. Avoid generating code that is merely plausible but does not compile. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
+Generate a COMPLETE Gradle project with settings.gradle, build.gradle, gradle.properties, src/main/resources/fabric.mod.json, Java source, README.md, and assets/config where required. When the requested mod introduces custom items or blocks that need artwork, include one texture request per custom PNG in the textures array. Each request must contain the exact filename, a safe path under src/main/resources/assets/<modid>/textures/item/ or block/, and a concise visual description. Request only original artwork the user should provide, not vanilla Minecraft textures. If no custom artwork is needed, return an empty textures array. Use official Fabric Loom, Fabric Loader, Yarn/Mojang mappings, and Fabric API conventions compatible with the EXACT requested Minecraft version. The supported modern targets include Minecraft 26.1, 26.2, and 26.3; these are distinct versions, never interpret the word latest as a version. For 26.1–26.3, use the current version-specific Fabric toolchain and APIs; do not copy old 1.21.x build scripts, Java APIs, item constructors, registry identifiers, creative tabs, or tool-material constants. Select exact compatible stable versions from official Fabric metadata/Maven releases; if a compatible stable toolchain cannot be verified, state that clearly in compatibility.notes rather than inventing versions. Use exact, released, stable dependency and plugin versions verified against the official repositories. Never guess, shorten, or invent versions: a version such as "1.6" is not a valid substitute for a published patch release, and never fabricate versions such as "1.6.283". For Minecraft 1.21.1 only, use Fabric Loom 1.7.4 with plugin id "fabric-loom" and Gradle 8.8. For Minecraft 26.1, 26.2, and 26.3, use the unobfuscated-version plugin id "net.fabricmc.fabric-loom", stable Loom 1.18.2, Gradle 9.7.1, and Java 25. Do not use the legacy "fabric-loom" plugin ID or Loom 1.6.0 for Minecraft 26.x. Keep the exact requested minecraft_version in gradle.properties. Every generated project must include gradle/wrapper/gradle-wrapper.properties with the exact pinned Gradle distribution URL; never assume the user's globally installed Gradle is compatible. Never output placeholders such as <loom-version>, TODO_VERSION, unresolved version variables, or SNAPSHOT plugin versions. Never emit accessWidenerPath/accessWidener configuration unless you also create the exact matching access widener file and declare it correctly. Do not use splitEnvironmentSourceSets unless the selected Loom version supports it. Do not create unresolved literal paths such as \${modId}.accesswidener. In Groovy build.gradle, quote interpolated dynamic names in DSL blocks (for example, "\${modId}" { ... }); never emit a bare "\${modId}" { ... } block. In settings.gradle, pluginManagement must be the first executable block and must include the Fabric Maven repository (https://maven.fabricmc.net/). Prefer stable APIs and minimal dependencies. Before returning, cross-check every Java constructor, method override, registry call, item/tool material, creative tab API, and metadata field against the selected Minecraft/Fabric API version. Ensure source code and Gradle configuration target the same exact Minecraft version. Do not use getAttackDamage() or guessed ToolMaterial constants; use the actual target-version API. Avoid generating code that is merely plausible but does not compile. Include a gradlew wrapper only if you can provide correct wrapper files; otherwise use installed Gradle. Never include binaries, secrets, absolute paths, .. path segments, symlinks, or scripts that download/execute arbitrary code. Use package dev.fabricmodai.<modid>. Provide useful comments, error handling, and client/server separation. If a feature is not feasible or version support is uncertain, say so rather than pretending.`;
 
 
-function normalizeKnownGradleConfig(dir, targetMinecraftVersion) {
-  // Only apply this known compatibility pin to Minecraft 1.21.1.
-  if (String(targetMinecraftVersion) !== "1.21.1") return false;
+function normalizeGradleToolchain(dir, targetMinecraftVersion) {
+  const target = String(targetMinecraftVersion || "").trim();
+  const isModern = /^26\./.test(target);
+  const isLegacy1211 = target === "1.21.1";
+  if (!isModern && !isLegacy1211) return false;
 
+  const loomVersion = isModern ? "1.18.2" : "1.7.4";
+  const gradleVersion = isModern ? "9.7.1" : "8.8";
+  const pluginId = isModern ? "net.fabricmc.fabric-loom" : "fabric-loom";
   let changed = false;
-  for (const file of ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts"]) {
+
+  for (const file of ["build.gradle", "build.gradle.kts"]) {
     const fullPath = path.join(dir, file);
     if (!fs.existsSync(fullPath)) continue;
-
     const original = fs.readFileSync(fullPath, "utf8");
-    let updated = original.replace(
-      /(id\s*\(?\s*["']fabric-loom["']\s*\)?\s+version\s+["'])[^"']+(["'])/g,
-      (_match, before, after) => before + "1.7.4" + after
-    );
-    updated = updated.replace(
-      /(net\.fabricmc:fabric-loom:)\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?/g,
-      (_match, before) => before + "1.7.4"
-    );
-
-    updated = updated.replace(/^\s*splitEnvironmentSourceSets\(\)\s*;?\s*$/gm, "");
-    updated = updated.replace(/^\s*accessWidenerPath\s*=.*\$\{modId\}.*(?:\r?\n|$)/gm, "");
-
+    let updated = original;
+    updated = updated.replace(/id\s*\(?\s*["'](?:fabric-loom|net\.fabricmc\.fabric-loom)["']\s*\)?/g,
+      "id '" + pluginId + "'");
+    updated = updated.replace(/(id\s*["']net\.fabricmc\.fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
+      (_m, before, after) => before + loomVersion + after);
+    updated = updated.replace(/(id\s*["']fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
+      (_m, before, after) => before + loomVersion + after);
+    updated = updated.replace(/(net\.fabricmc:fabric-loom(?:-remap)?:)[0-9][A-Za-z0-9.+-]*/g,
+      (_m, before) => before + loomVersion);
     if (updated !== original) {
       fs.writeFileSync(fullPath, updated, "utf8");
       changed = true;
     }
+  }
+
+  const propertiesPath = path.join(dir, "gradle.properties");
+  let properties = fs.existsSync(propertiesPath) ? fs.readFileSync(propertiesPath, "utf8") : "";
+  const setProperty = (text, key, value) => {
+    const line = new RegExp("^" + key + "=.*$", "m");
+    return line.test(text) ? text.replace(line, key + "=" + value) :
+      (text && !text.endsWith("\n") ? text + "\n" : text) + key + "=" + value + "\n";
+  };
+  const originalProperties = properties;
+  properties = setProperty(properties, "loom_version", loomVersion);
+  properties = setProperty(properties, "minecraft_version", target);
+  if (isModern) properties = setProperty(properties, "java_version", "25");
+  if (properties !== originalProperties) {
+    fs.writeFileSync(propertiesPath, properties, "utf8");
+    changed = true;
+  }
+
+  const wrapperDir = path.join(dir, "gradle", "wrapper");
+  fs.mkdirSync(wrapperDir, { recursive: true });
+  const wrapperPath = path.join(wrapperDir, "gradle-wrapper.properties");
+  const wrapperText = [
+    "distributionBase=GRADLE_USER_HOME",
+    "distributionPath=wrapper/dists",
+    "distributionUrl=https\\://services.gradle.org/distributions/gradle-" + gradleVersion + "-bin.zip",
+    "networkTimeout=10000",
+    "validateDistributionUrl=true",
+    "zipStoreBase=GRADLE_USER_HOME",
+    "zipStorePath=wrapper/dists",
+    ""
+  ].join("\n");
+  if (!fs.existsSync(wrapperPath) || fs.readFileSync(wrapperPath, "utf8") !== wrapperText) {
+    fs.writeFileSync(wrapperPath, wrapperText, "utf8");
+    changed = true;
   }
   return changed;
 }
@@ -109,42 +145,90 @@ function validateSourceProject(dir) {
 }
 
 function addBuildInstructions(dir) {
-  fs.writeFileSync(path.join(dir,"BUILD.bat"), `@echo off
-setlocal
-cd /d "%~dp0"
-where java >nul 2>nul
-if errorlevel 1 (echo Install a compatible JDK first.& pause & exit /b 1)
-if exist gradlew.bat (call gradlew.bat build) else if exist "%USERPROFILE%\gradle-8.8\bin\gradle.bat" (call "%USERPROFILE%\gradle-8.8\bin\gradle.bat" build) else (
-  where gradle >nul 2>nul
-  if errorlevel 1 (echo Gradle is missing. Install the Gradle version required by this project or include a wrapper.& pause & exit /b 1)
-  call gradle build
-)
-if errorlevel 1 (echo BUILD FAILED.& pause & exit /b 1)
-echo BUILD SUCCESSFUL. Your JAR is in build\libs
-pause
-`, "utf8");
-  fs.writeFileSync(path.join(dir,"build.sh"), `#!/usr/bin/env sh
-set -eu
-cd "$(dirname "$0")"
-if [ -x ./gradlew ]; then exec ./gradlew build; fi
-if command -v gradle >/dev/null 2>&1; then exec gradle build; fi
-echo "Install Gradle or include a Gradle wrapper." >&2
-exit 1
-`, "utf8");
-  fs.writeFileSync(path.join(dir,"BUILD-INSTRUCTIONS.md"), `# Build the Fabric mod JAR
+  const bat = [
+    "@echo off",
+    "setlocal",
+    "cd /d \"%~dp0\"",
+    "where java >nul 2>nul",
+    "if errorlevel 1 (echo Install the Java JDK required by this Minecraft version first.& pause & exit /b 1)",
+    "if exist gradlew.bat (call gradlew.bat build) else (",
+    "  powershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0build.ps1\"",
+    ")",
+    "if errorlevel 1 (echo BUILD FAILED.& pause & exit /b 1)",
+    "echo BUILD SUCCESSFUL. Your JAR is in build\\libs",
+    "pause",
+    ""
+  ].join("\r\n");
+  fs.writeFileSync(path.join(dir, "BUILD.bat"), bat, "utf8");
 
-This ZIP contains a Gradle source project, not a compiled JAR.
+  const ps1 = [
+    "$ErrorActionPreference = 'Stop'",
+    "Set-Location $PSScriptRoot",
+    "$props = Join-Path $PSScriptRoot 'gradle/wrapper/gradle-wrapper.properties'",
+    "if (-not (Test-Path $props)) { throw 'Missing gradle/wrapper/gradle-wrapper.properties. The project has no pinned Gradle version.' }",
+    "$line = Get-Content $props | Where-Object { $_ -match '^distributionUrl=' } | Select-Object -First 1",
+    "if (-not $line) { throw 'The Gradle distributionUrl is missing.' }",
+    "$url = ($line -replace '^distributionUrl=', '') -replace '\\\\:', ':'",
+    "if ($url -notmatch 'gradle-([0-9][0-9A-Za-z.\\-]*)-bin\\.zip') { throw ('Cannot read Gradle version from: ' + $url) }",
+    "$version = $Matches[1]",
+    "$cache = Join-Path $env:USERPROFILE '.gradle/fabric-mod-ai'",
+    "$gradle = Join-Path $cache ('gradle-' + $version + '/bin/gradle.bat')",
+    "New-Item -ItemType Directory -Force -Path $cache | Out-Null",
+    "if (-not (Test-Path $gradle)) {",
+    "  $zip = Join-Path $cache ('gradle-' + $version + '-bin.zip')",
+    "  Write-Host ('Downloading the project-required Gradle ' + $version + '...')",
+    "  Invoke-WebRequest -Uri $url -OutFile $zip",
+    "  Expand-Archive -Path $zip -DestinationPath $cache -Force",
+    "  Remove-Item $zip -Force",
+    "}",
+    "if (-not (Test-Path $gradle)) { throw ('Gradle ' + $version + ' did not install correctly.') }",
+    "Write-Host ('Building with the project-required Gradle ' + $version + '...')",
+    "& $gradle build",
+    "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+    "Write-Host 'BUILD SUCCESSFUL. Your JAR is in build/libs.'",
+    ""
+  ].join("\r\n");
+  fs.writeFileSync(path.join(dir, "build.ps1"), ps1, "utf8");
 
-**Windows:** Install a JDK compatible with the target Minecraft version. Extract the ZIP and double-click BUILD.bat. If no Gradle wrapper is included, install Gradle first.
+  const sh = [
+    "#!/usr/bin/env sh",
+    "set -eu",
+    "cd \"$(dirname \"$0\")\"",
+    "if [ -x ./gradlew ]; then exec ./gradlew build; fi",
+    "PROPS=gradle/wrapper/gradle-wrapper.properties",
+    "[ -f \"$PROPS\" ] || { echo 'Missing pinned Gradle wrapper properties.' >&2; exit 1; }",
+    "URL=$(sed -n 's/^distributionUrl=//p' \"$PROPS\" | sed 's/\\\\:/:/g')",
+    "VERSION=$(printf '%s' \"$URL\" | sed -n 's/.*gradle-\\([0-9][0-9A-Za-z.-]*\\)-bin\\.zip.*/\\1/p')",
+    "[ -n \"$VERSION\" ] || { echo 'Could not read pinned Gradle version.' >&2; exit 1; }",
+    "CACHE=\"\${HOME}/.gradle/fabric-mod-ai\"",
+    "GRADLE=\"\${CACHE}/gradle-\${VERSION}/bin/gradle\"",
+    "mkdir -p \"$CACHE\"",
+    "if [ ! -x \"$GRADLE\" ]; then",
+    "  ZIP=\"\${CACHE}/gradle-\${VERSION}-bin.zip\"",
+    "  echo \"Downloading project-required Gradle \${VERSION}...\"",
+    "  if command -v curl >/dev/null 2>&1; then curl -fL \"$URL\" -o \"$ZIP\"; else wget -O \"$ZIP\" \"$URL\"; fi",
+    "  unzip -oq \"$ZIP\" -d \"$CACHE\"",
+    "  rm -f \"$ZIP\"",
+    "fi",
+    "exec \"$GRADLE\" build",
+    ""
+  ].join("\n");
+  fs.writeFileSync(path.join(dir, "build.sh"), sh, "utf8");
 
-**macOS/Linux:** Install a compatible JDK and Gradle (unless a wrapper is included), then run ./build.sh.
-
-After a successful build, find the mod JAR in build/libs and copy it into your Minecraft mods folder.
-
-Fabric Mod AI runs lightweight source and metadata checks before creating this ZIP. Those checks do not compile Java or prove in-game functionality. The actual Gradle build is the compilation test.
-
-A general file converter cannot compile Java source code into a working Fabric mod JAR. Gradle must compile and package the project.
-`, "utf8");
+  fs.writeFileSync(path.join(dir, "BUILD-INSTRUCTIONS.md"), [
+    "# Build the Fabric mod JAR",
+    "",
+    "This project pins its own Gradle version in gradle/wrapper/gradle-wrapper.properties.",
+    "",
+    "**Windows:** Install the required Java JDK, extract the ZIP, and double-click BUILD.bat. The script downloads and uses this project's exact Gradle version automatically; it does not use a mismatched system Gradle installation.",
+    "",
+    "**macOS/Linux:** Install the required Java JDK and run ./build.sh. The script downloads and uses the pinned Gradle version automatically.",
+    "",
+    "After a successful build, find the mod JAR in build/libs and copy it into your Minecraft mods folder.",
+    "",
+    "Fabric Mod AI performs lightweight source and metadata checks before creating this ZIP. Those checks do not compile Java or prove in-game functionality. The local Gradle build is the compilation test.",
+    ""
+  ].join("\n"), "utf8");
 }
 
 async function createProject(job, onLog, waitForTexture) {
@@ -168,7 +252,7 @@ async function createProject(job, onLog, waitForTexture) {
   if (!Array.isArray(result.files)) throw new Error("AI response did not contain a files array.");
 
   const count = writeFiles(dir, result.files);
-  if (normalizeKnownGradleConfig(dir, job.version)) onLog("Applied the verified Minecraft 1.21.1 / Fabric Loom 1.7.4 compatibility cleanup.");
+  if (normalizeGradleToolchain(dir, job.version)) onLog("Pinned the matching Fabric Loom and Gradle toolchain for Minecraft " + job.version + ". BUILD.bat will install and use that exact Gradle version.");
   addBuildInstructions(dir);
   onLog("Added BUILD.bat and build.sh so users can compile the JAR on their own computers.");
 
@@ -257,7 +341,7 @@ async function reviseProject(project, instruction) {
   if (totalBytes > 4000000) throw new Error("Revised project exceeded the 4 MB safety limit.");
 
   const byPath = new Map(result.files.map(file => [file.path, file.content]));
-  for (const supportFile of ["BUILD.bat", "build.sh", "BUILD-INSTRUCTIONS.md"]) {
+  for (const supportFile of ["BUILD.bat", "build.ps1", "build.sh", "BUILD-INSTRUCTIONS.md"]) {
     const existing = project.files.find(file => file.path === supportFile);
     if (existing && !byPath.has(supportFile)) {
       result.files.push(existing);
