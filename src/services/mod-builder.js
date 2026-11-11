@@ -27,7 +27,7 @@ function normalizeKnownGradleConfig(dir, targetMinecraftVersion) {
       (_match, before) => before + "1.7.4"
     );
 
-    updated = updated.replace(/^\\s*splitEnvironmentSourceSets\\(\\)\\s*;?\\s*$/gm, "");\n    updated = updated.replace(/^\\s*accessWidenerPath\\s*=.*(?:\\r?\\n|$)/gm, "");\n\n    updated = updated.replace(/^\s*splitEnvironmentSourceSets\(\)\s*;?\s*$/gm, "");
+    updated = updated.replace(/^\s*splitEnvironmentSourceSets\(\)\s*;?\s*$/gm, "");
     updated = updated.replace(/^\s*accessWidenerPath\s*=.*\$\{modId\}.*(?:\r?\n|$)/gm, "");
 
     if (updated !== original) {
