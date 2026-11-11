@@ -24,12 +24,19 @@ function normalizeGradleToolchain(dir, targetMinecraftVersion) {
     if (!fs.existsSync(fullPath)) continue;
     const original = fs.readFileSync(fullPath, "utf8");
     let updated = original;
-    updated = updated.replace(/id\s*\(?\s*["'](?:fabric-loom|net\.fabricmc\.fabric-loom)["']\s*\)?/g,
-      "id '" + pluginId + "'");
-    updated = updated.replace(/(id\s*["']net\.fabricmc\.fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
-      (_m, before, after) => before + loomVersion + after);
-    updated = updated.replace(/(id\s*["']fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
-      (_m, before, after) => before + loomVersion + after);
+    if (file.endsWith(".kts")) {
+      updated = updated.replace(/id\s*\(\s*["'](?:fabric-loom|net\.fabricmc\.fabric-loom)["']\s*\)/g,
+        'id("' + pluginId + '")');
+      updated = updated.replace(/(id\s*\(\s*["']net\.fabricmc\.fabric-loom["']\s*\)\s+version\s+["'])[^"']+(["'])/g,
+        (_m, before, after) => before + loomVersion + after);
+    } else {
+      updated = updated.replace(/id\s*\(?\s*["'](?:fabric-loom|net\.fabricmc\.fabric-loom)["']\s*\)?/g,
+        "id '" + pluginId + "'");
+      updated = updated.replace(/(id\s*["']net\.fabricmc\.fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
+        (_m, before, after) => before + loomVersion + after);
+      updated = updated.replace(/(id\s*["']fabric-loom["']\s+version\s+["'])[^"']+(["'])/g,
+        (_m, before, after) => before + loomVersion + after);
+    }
     updated = updated.replace(/(net\.fabricmc:fabric-loom(?:-remap)?:)[0-9][A-Za-z0-9.+-]*/g,
       (_m, before) => before + loomVersion);
     if (updated !== original) {
